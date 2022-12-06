@@ -1,5 +1,7 @@
 try:
-    from local_settings import ORG_URL, PAT, PROJECT, BUILD_PIPELINE_ID, GITHUB_URL, GITHUB_PAT, REPO
+    from local_settings import (
+        ORG_URL, PAT, PROJECT, BUILD_PIPELINE_ID, GITHUB_URL, GITHUB_PAT, REPO
+    )
 except ImportError:
     pass
 
@@ -18,22 +20,8 @@ class QueryResultStatus():
     BUILD_IN_PROGRESS = "Building"
 
 
-class PipelineStatus():
-    WAITING = 'Waiting'
-    RUNNING = 'Running'
-    SUCCESS = 'Successful'
-    FAILURE = 'Failed'
-
-
 class QueryResult():
-    # def __init__(self, result_status=QueryResultStatus.CHECKING):
     def __init__(self):
-        # self.status = result_status
-        # self.last_build = None
-        # self.latest_build = None
-        # self.enable = False
-        # self.deploying = False
-        # self.release = None
         self.enable_dev = False
         self.enable_tst = False
         self.enable_stage = False
@@ -42,10 +30,6 @@ class QueryResult():
         self.deploying_tst = False
         self.deploying_stage = False
         self.deploying_prod = False
-        # self.result_dev = None
-        # self.result_tst = None
-        # self.result_stage = None
-        # self.result_prd = None
         self.build_dev = None
         self.build_tst = None
         self.build_stage = None
@@ -54,14 +38,6 @@ class QueryResult():
         self.branch_tst = None
         self.branch_stage = None
         self.branch_prod = None
-
-
-# class QueryResult():
-#     def __init__(self, result_status=QueryResultStatus.CHECKING):
-#         self.dev = SingleQueryResult(result_status=result_status)
-#         self.tst = SingleQueryResult(result_status=result_status)
-#         self.stg = SingleQueryResult(result_status=result_status)
-#         self.prd = SingleQueryResult(result_status=result_status)
 
 
 class Pipelines():
@@ -103,19 +79,6 @@ class Pipelines():
         )
 
         return build_result
-        # buildDef = build_client.get_definition(PROJECT, BUILD_PIPELINE_ID[approve_env], include_latest_builds=True)
-        # approvals = rm_client.get_approvals(project=PROJECT, type_filter="preDeploy")
-        # releaseApproval = None
-        # for a in approvals:
-        #     # print(a.release.name + " awaiting approval to " + a.release_environment.name)
-        #     if approve_env == a.release_environment.name:
-        #         # Approve this environment
-        #         approval = a
-        #         approval.status = "approved"
-        #         approval.comments = "Approved by DasDeployer big button"
-        #         releaseApproval = rm_client.update_release_approval(approval, PROJECT, approval.id)
-        #         print("Approved " + releaseApproval.release.name + " to " + releaseApproval.release_environment.name)
-        # return releaseApproval
 
 
 class PollStatusThread(threading.Thread):
@@ -166,44 +129,18 @@ class PollStatusThread(threading.Thread):
             tst_branch = tst_branches[0].name if tst_branches else None
 
             main_branches = [branch for branch in branches if branch.name == 'main']
-            # print(main_branches)
             main_branch = main_branches[0].name if main_branches else None
-            # print(bool(main_branch))
 
-            # for environment in BUILD_PIPELINE_ID.keys():
-            #     buildDef = self._build_client.get_definition(PROJECT, BUILD_PIPELINE_ID[environment], include_latest_builds=True)
-
-            #     if buildDef.latest_completed_build.id == buildDef.latest_build.id:
-            #         env_result.status = QueryResultStatus.BUILD_COMPLETE
-            #         env_result.latest_build = buildDef.latest_build
-            #         env_result.last_build = buildDef.latest_completed_build
-            #     else:
-            #         # A build is in progress
-            #         env_result.status = QueryResultStatus.BUILD_IN_PROGRESS
-            #         env_result.latest_build = buildDef.latest_build
-            #         env_result.last_build = buildDef.latest_completed_build
-            #     setattr(result, environment, env_result)
-
-            # Figure out if we should enable approval toggles
-
-            # First see if any of the environments are deploying
             for e in BUILD_PIPELINE_ID:
-                buildDef: BuildDefinition = self._build_client.get_definition(PROJECT, BUILD_PIPELINE_ID[e], include_latest_builds=True)
+                buildDef: BuildDefinition = self._build_client.get_definition(
+                    PROJECT, BUILD_PIPELINE_ID[e], include_latest_builds=True
+                )
                 if buildDef.latest_completed_build.id == buildDef.latest_build.id:
+                    # build is finished
                     deploying = False
-                    # print('done', buildDef.latest_completed_build.result)
-                    # if buildDef.latest_completed_build.result == 'failed':
-                    #     deploying = PipelineStatus.FAILURE
-                    # elif buildDef.latest_completed_build.result == 'succeeded':
-                    #     deploying = PipelineStatus.SUCCESS
                 else:
                     # A build is in progress
                     deploying = True
-                    # print('running')
-                    # deploying = PipelineStatus.RUNNING
-                # deployments = self._rm_client.get_deployments(PROJECT, definition_id=RELEASE_ID, definition_environment_id=ENVIRONMENTS[e], top=1, deployment_status="all")
-                # deploy_env = (deployments[0].deployment_status == "inProgress" or deployments[0].operation_status == "QueuedForAgent")
-                # enable_env = (deployments[0].deployment_status == "inProgress" or deployments[0].deployment_status == "notDeployed")
 
                 if e == 'Dev':
                     result.enable_dev = bool(dev_branch)
@@ -227,16 +164,11 @@ class PollStatusThread(threading.Thread):
                     result.deploying_prod = deploying
                     result.build_prod = buildDef.latest_build
 
-                # if deploy_env:
-                #     print(deployments[0])
-                #     print(e + ": " + deployments[0].release.name + " - " + deployments[0].deployment_status + " q:" + deployments[0].queued_on.strftime("%Y-%m-%d %H:%M") )
-
             if (
-                # self._last_result.status != result.status or
-                # (
-                #     self._last_result.latest_build is not None and
-                #     self._last_result.latest_build.last_changed_date != result.latest_build.last_changed_date
-                # ) or
+                # Check if any values have changed to trigger saving a new result
+                # the Build objects are not checked because they'll always be different
+                # and we don't care of the Build changes unless one of these values
+                # has changed
                 self._last_result.enable_dev != result.enable_dev or
                 self._last_result.enable_tst != result.enable_tst or
                 self._last_result.enable_stage != result.enable_stage or
@@ -267,11 +199,18 @@ def pipemain():
     # Get the build status
     build_client: BuildClient = connection.clients.get_build_client()
     # buildDef = build_client.get_definition(PROJECT, BUILD_PIPELINE_ID, include_latest_builds=True)
-    build_def_dev = build_client.get_definition(PROJECT, BUILD_PIPELINE_ID['Dev'], include_latest_builds=True)
-    # build_def_tst = build_client.get_definition(PROJECT, BUILD_PIPELINE_ID['Test'], include_latest_builds=True)
-    # build_def_stg = build_client.get_definition(PROJECT, BUILD_PIPELINE_ID['Stage'], include_latest_builds=True)
-    build_def_prd = build_client.get_definition(PROJECT, BUILD_PIPELINE_ID['Prod'], include_latest_builds=True)
-    # build_def_hel = build_client.get_definition(PROJECT, 48, include_latest_builds=True)
+    build_def_dev = build_client.get_definition(
+        PROJECT, BUILD_PIPELINE_ID['Dev'], include_latest_builds=True
+    )
+    # build_def_tst = build_client.get_definition(
+    #     PROJECT, BUILD_PIPELINE_ID['Test'], include_latest_builds=True
+    # )
+    # build_def_stg = build_client.get_definition(
+    #     PROJECT, BUILD_PIPELINE_ID['Stage'], include_latest_builds=True
+    # )
+    build_def_prd = build_client.get_definition(
+        PROJECT, BUILD_PIPELINE_ID['Prod'], include_latest_builds=True
+    )
 
     build = Build(
         source_branch='dev/billing',
@@ -281,10 +220,27 @@ def pipemain():
     print(build_result)
 
     if build_def_prd.latest_completed_build.id == build_def_prd.latest_build.id:
-        print("Build " + build_def_prd.latest_build.definition.name + " " + build_def_prd.latest_build.build_number + " " + build_def_prd.latest_completed_build.result)
+        print(
+            "Build " +
+            build_def_prd.latest_build.definition.name +
+            " " +
+            build_def_prd.latest_build.build_number +
+            " " +
+            build_def_prd.latest_completed_build.result
+        )
     else:
         # A build is in progress
-        print("Build " + build_def_prd.latest_build.definition.name + " " + build_def_prd.latest_build.build_number + " " + build_def_prd.latest_completed_build.result + " (" + build_def_prd.latest_build.status + ")")
+        print(
+            "Build " +
+            build_def_prd.latest_build.definition.name +
+            " " +
+            build_def_prd.latest_build.build_number +
+            " " +
+            build_def_prd.latest_completed_build.result +
+            " (" +
+            build_def_prd.latest_build.status +
+            ")"
+        )
 
     # Get Release Client
     # rm_client = connection.clients.get_release_client()
@@ -292,8 +248,22 @@ def pipemain():
     # # See what environments we have and the status of their latest deployments
     # release = rm_client.get_release_definition(PROJECT, RELEASE_ID)
     # for e in release.environments:
-    #     deployments = rm_client.get_deployments(PROJECT, definition_id=RELEASE_ID, definition_environment_id=e.id, top=1, deployment_status="all")
-    #     print(str(e.id) + " - " + e.name + ": " + deployments[0].release.name + " - " + deployments[0].deployment_status)
+    #     deployments = rm_client.get_deployments(
+    #         PROJECT,
+    #         definition_id=RELEASE_ID,
+    #         definition_environment_id=e.id,
+    #         top=1,
+    #         deployment_status="all"
+    #     )
+    #     print(
+    #         str(e.id) +
+    #         " - " +
+    #         e.name +
+    #         ": " +
+    #         deployments[0].release.name +
+    #         " - " +
+    #         deployments[0].deployment_status
+    #     )
 
     # # Look up pending approvals
     # approvals = rm_client.get_approvals(project=PROJECT, type_filter="preDeploy")
@@ -307,4 +277,9 @@ def pipemain():
     #     approval.status = "approved"
     #     approval.comments = "Approved by DasDeployer"
     #     releaseApproval = rm_client.update_release_approval(approval, PROJECT, approval.id)
-    #     print("Approved " + releaseApproval.release.name + " to " + releaseApproval.release_environment.name)
+        # print(
+        #     "Approved " +
+        #     releaseApproval.release.name +
+        #     " to " +
+        #     releaseApproval.release_environment.name
+        # )
