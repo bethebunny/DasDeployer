@@ -40,6 +40,11 @@ _RING_END = _BUTTON_START = _RING_PIXELS
 _BUTTON_END = _KEY1_START = _RING_PIXELS + _BUTTON_PIXELS
 _KEY1_END = _KEY2_START = _RING_PIXELS + _BUTTON_PIXELS + _KEY_PIXELS
 _KEY2_END = _NUM_PIXELS = _RING_PIXELS + _BUTTON_PIXELS + (2 * _KEY_PIXELS)
+_RING_RANGE = slice(_RING_START, _RING_END)
+_BUTTON_RANGE = slice(_BUTTON_START, _BUTTON_END)
+_KEY1_RANGE = slice(_KEY1_START, _KEY1_END)
+_KEY2_RANGE = slice(_KEY2_START, _KEY2_END)
+
 # _KEY_START = _RING_PIXELS + _BUTTON_PIXELS
 _ORDER = neopixel.GRB  # The ones I purchased have red and green reversed
 
@@ -88,29 +93,36 @@ class RGBButton():
         self._animate_stop()
         # Ring appears brighter to the eye than the button so reduce intensity of the LEDS
         ring_color = tuple(int(c * self.ring_brightness) for c in color)
-        self.pixels[_RING_START:_RING_END] = [ring_color] * _RING_PIXELS
-        self.pixels[_BUTTON_START:_BUTTON_END] = [color] * _BUTTON_PIXELS
-        self.pixels[_KEY1_START:_KEY1_END] = [ring_color] * _KEY_PIXELS
-        self.pixels[_KEY2_START:_KEY2_END] = [ring_color] * _KEY_PIXELS
+        self.pixels[_RING_RANGE] = [ring_color] * _RING_PIXELS
+        self.pixels[_BUTTON_RANGE] = [color] * _BUTTON_PIXELS
+        self.pixels[_KEY1_RANGE] = [ring_color] * _KEY_PIXELS
+        self.pixels[_KEY2_RANGE] = [ring_color] * _KEY_PIXELS
         self.pixels.show()
 
     def fillButton(self, color):
         self._animate_stop()
-        self.pixels[_BUTTON_START:_BUTTON_END] = [color] * _BUTTON_PIXELS
+        self.pixels[_BUTTON_RANGE] = [color] * _BUTTON_PIXELS
         self.pixels.show()
 
     def fillRing(self, color):
         self._animate_stop()
         # Ring appears brighter to the eye than the button so reduce intensity of the LEDS
         ring_color = tuple(int(c * self.ring_brightness) for c in color)
-        self.pixels[0:_RING_PIXELS] = [ring_color] * _RING_PIXELS
+        self.pixels[_RING_RANGE] = [ring_color] * _RING_PIXELS
         self.pixels.show()
 
     def fillKey1(self, color):
         self._animate_stop()
         # Ring appears brighter to the eye than the button so reduce intensity of the LEDS
         ring_color = tuple(int(c * self.ring_brightness) for c in color)
-        self.pixels[_KEY1_START:_KEY2_END] = [ring_color] * _KEY_PIXELS * 2
+        self.pixels[_KEY1_RANGE] = [ring_color] * _KEY_PIXELS
+        self.pixels.show()
+
+    def fillKey2(self, color):
+        self._animate_stop()
+        # Ring appears brighter to the eye than the button so reduce intensity of the LEDS
+        ring_color = tuple(int(c * self.ring_brightness) for c in color)
+        self.pixels[_KEY2_RANGE] = [ring_color] * _KEY_PIXELS
         self.pixels.show()
 
     def _animate_stop(self):
@@ -144,11 +156,13 @@ class RGBButton():
                 self._animate_thread.ring_animation is None
                 and
                 self._animate_thread.key1_animation is None
+                and
+                self._animate_thread.key2_animation is None
             ):
                 self._animate_stop()
             else:
                 self._animate_thread.button_animation = None
-        self.pixels[_BUTTON_START:_BUTTON_END] = [Color.OFF] * _BUTTON_PIXELS
+        self.pixels[_BUTTON_RANGE] = [Color.OFF] * _BUTTON_PIXELS
         self.pixels.show()
 
     def unicornRing(self, duration=25):
@@ -187,11 +201,17 @@ class RGBButton():
 
     def stopRing(self):
         if self._animate_thread is not None:
-            if self._animate_thread.button_animation is None:
+            if (
+                self._animate_thread.button_animation is None
+                and
+                self._animate_thread.key1_animation is None
+                and
+                self._animate_thread.key2_animation is None
+            ):
                 self._animate_stop()
             else:
                 self._animate_thread.ring_animation = None
-        self.pixels[_RING_START:_RING_END] = [Color.OFF] * _RING_PIXELS
+        self.pixels[_RING_RANGE] = [Color.OFF] * _RING_PIXELS
         self.pixels.show()
 
     def stopKey1(self):
@@ -199,17 +219,42 @@ class RGBButton():
             if (
                 self._animate_thread.button_animation is None
                 and
+                self._animate_thread.ring_animation is None
+                and
+                self._animate_thread.key2_animation is None
+            ):
+                self._animate_stop()
+            else:
+                self._animate_thread.key1_animation = None
+        self.pixels[_KEY1_RANGE] = [Color.OFF] * _KEY_PIXELS
+        self.pixels.show()
+
+    def stopKey2(self):
+        if self._animate_thread is not None:
+            if (
+                self._animate_thread.button_animation is None
+                and
+                self._animate_thread.ring_animation is None
+                and
                 self._animate_thread.key1_animation is None
             ):
                 self._animate_stop()
             else:
-                self._animate_thread.button_animation = None
-        self.pixels[_KEY1_START:_KEY2_END] = [Color.OFF] * _KEY_PIXELS * 2
+                self._animate_thread.key2_animation = None
+        self.pixels[_KEY2_RANGE] = [Color.OFF] * _KEY_PIXELS
         self.pixels.show()
 
     def chaseKey1(self, color=(0, 0, 255), duration=5):
         self._animate_start()
         self._animate_thread.key1_animation = {
+            "type": AnimationType.CHASE,
+            "color": color,
+            "duration": duration
+        }
+
+    def chaseKey2(self, color=(0, 0, 255), duration=5):
+        self._animate_start()
+        self._animate_thread.key2_animation = {
             "type": AnimationType.CHASE,
             "color": color,
             "duration": duration
@@ -224,10 +269,28 @@ class RGBButton():
             "duration": duration
         }
 
+    def flashKey2(self, color=(0, 0, 100), duration=2.5):
+        self._animate_start()
+        ring_color = tuple(int(c * self.ring_brightness) for c in color)
+        self._animate_thread.key2_animation = {
+            "type": AnimationType.FLASH,
+            "color": ring_color,
+            "duration": duration
+        }
+
     def pulseKey1(self, color=Color.WHITE, duration=1):
         self._animate_start()
         ring_color = tuple(int(c * self.ring_brightness) for c in color)
         self._animate_thread.key1_animation = {
+            "type": AnimationType.PULSE,
+            "color": ring_color,
+            "duration": duration
+        }
+
+    def pulseKey2(self, color=Color.WHITE, duration=1):
+        self._animate_start()
+        ring_color = tuple(int(c * self.ring_brightness) for c in color)
+        self._animate_thread.key2_animation = {
             "type": AnimationType.PULSE,
             "color": ring_color,
             "duration": duration
@@ -245,9 +308,11 @@ class AnimateThread(threading.Thread):
         self._button_animation = None
         self._ring_animation = None
         self._key1_animation = None
+        self._key2_animation = None
         self._button_frame = 0
         self._ring_frame = 0
         self._key1_frame = 0
+        self._key2_frame = 0
 
     @property
     def button_animation(self):
@@ -276,6 +341,15 @@ class AnimateThread(threading.Thread):
         self._key1_animation = value
         self._key1_frame = 0
 
+    @property
+    def key2_animation(self):
+        return self._key2_animation
+
+    @key2_animation.setter
+    def key2_animation(self, value):
+        self._key2_animation = value
+        self._key2_frame = 0
+
     def start(self):
         self.stoprequest.clear()
         super(AnimateThread, self).start()
@@ -286,6 +360,7 @@ class AnimateThread(threading.Thread):
         self.button_animation = None
         self.ring_animation = None
         self.key1_animation = None
+        self.key2_animation = None
 
     def join(self, timeout=None):
         super(AnimateThread, self).join(timeout)
@@ -298,14 +373,17 @@ class AnimateThread(threading.Thread):
         while True:
             # Note that the animate functions control iterating and resetting their own frames
             # Get a frame for the ring
-            ring_pixels = self._animate_ring(self.pixels[_RING_START:_RING_END])
-            self.pixels[_RING_START:_RING_END] = ring_pixels
+            ring_pixels = self._animate_ring(self.pixels[_RING_RANGE])
+            self.pixels[_RING_RANGE] = ring_pixels
             # Get a frame for the button
-            button_pixels = self._animate_button(self.pixels[_BUTTON_START:_BUTTON_END])
-            self.pixels[_BUTTON_START:_BUTTON_END] = button_pixels
-            # Get a frame for the key
-            key1_pixels = self._animate_key1(self.pixels[_KEY1_START:_KEY2_END])
-            self.pixels[_KEY1_START:_KEY2_END] = key1_pixels
+            button_pixels = self._animate_button(self.pixels[_BUTTON_RANGE])
+            self.pixels[_BUTTON_RANGE] = button_pixels
+            # Get a frame for the key1
+            key1_pixels = self._animate_key1(self.pixels[_KEY1_RANGE])
+            self.pixels[_KEY1_RANGE] = key1_pixels
+            # Get a frame for the key2
+            key2_pixels = self._animate_key2(self.pixels[_KEY2_RANGE])
+            self.pixels[_KEY2_RANGE] = key2_pixels
             # Show them at the same time
             self.pixels.show()
             # Wait a bit then get the next frame
@@ -348,6 +426,19 @@ class AnimateThread(threading.Thread):
             frame=self._key1_frame,
             color=self.key1_animation["color"],
             duration=self.key1_animation["duration"])
+
+        return pixels
+
+    def _animate_key2(self, pixels):
+        if self.key2_animation is None:
+            return [self.pixels[_KEY2_START]] * len(pixels)
+
+        (self._key2_frame, pixels) = self._animate(
+            num_pixels=len(pixels),
+            animation_type=self.key2_animation["type"],
+            frame=self._key2_frame,
+            color=self.key2_animation["color"],
+            duration=self.key2_animation["duration"])
 
         return pixels
 
