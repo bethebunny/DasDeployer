@@ -8,7 +8,7 @@ Generic HD44780 based lcd matrix display with a I2C character LCD backpack
 
 Implementation Notes
 --------------------
-Magic numbers cribbed from lcd_i2c.py written by Matt Hawkins 
+Magic numbers cribbed from lcd_i2c.py written by Matt Hawkins
 <https://www.raspberrypi-spy.co.uk/2015/05/using-an-i2c-enabled-lcd-screen-with-the-raspberry-pi/>
 
 For an explaination of the magic numbers and character code lookup table see SparkFun
@@ -19,7 +19,8 @@ Code inspired by Adafruit's excellent CircuitPython CharLCD library
 
 **Hardware:**
 
-"* `20x4 Character LCD with HD44780 controller via IIC/I2C Serial Interface Adapter <https://amzn.to/2JqRpF5>`_"
+"* `20x4 Character LCD with HD44780 controller via IIC/I2C Serial Interface Adapter
+<https://amzn.to/2JqRpF5>`_"
 
 **Software and Dependencies:**
 
@@ -32,15 +33,16 @@ import time
 __version__ = "0.0.0-auto.0"
 __repo__ = "https://github.com/martinwoodward/DasDeployer.git"
 
-#LCD Ram addresses for each line
+# LCD Ram addresses for each line
 _LCD_ROW_OFFSETS = (0x80, 0xC0, 0x94, 0xD4)
 
-_LCD_BACKLIGHT  = 0x08  # 0x08 On, 0x00 Off
+_LCD_BACKLIGHT = 0x08  # 0x08 On, 0x00 Off
 
-_ENABLE = 0b00000100 # Enable bit
+_ENABLE = 0b00000100  # Enable bit
 
 # Timing constants
 _DELAY = 0.0003
+
 
 class LCD_HD44780_I2C:
     def __init__(self, cols=20, rows=4, address=0x27):
@@ -51,20 +53,20 @@ class LCD_HD44780_I2C:
         self._last_message = ""
 
         # Initialise the bus
-        self.bus = smbus.SMBus(1) # Modern Pi uses 1, old Pi's (Rev 1) use 0
+        self.bus = smbus.SMBus(1)  # Modern Pi uses 1, old Pi's (Rev 1) use 0
 
         # Use the bus to initialise the display using some magic bits
-        self._write8(0x33) # 110011 Initialise
-        self._write8(0x32) # 110010 Initialise
-        self._write8(0x06) # 000110 Cursor move direction
-        self._write8(0x0C) # 001100 Display On,Cursor Off, Blink Off 
-        self._write8(0x28) # 101000 Data length, number of lines, font size
+        self._write8(0x33)  # 110011 Initialise
+        self._write8(0x32)  # 110010 Initialise
+        self._write8(0x06)  # 000110 Cursor move direction
+        self._write8(0x0C)  # 001100 Display On,Cursor Off, Blink Off
+        self._write8(0x28)  # 101000 Data length, number of lines, font size
         self.clear()
         time.sleep(_DELAY)
 
     def _write8(self, bits, char_mode=False, backlight=_LCD_BACKLIGHT):
         """ Send a byte to the data pins.
-        
+
         Parameters
         ----------
         bits : int
@@ -75,7 +77,7 @@ class LCD_HD44780_I2C:
             0 for backlight off, 0x08 for on
         """
         bits_high = char_mode | (bits & 0xF0) | backlight
-        bits_low = char_mode | ((bits<<4) & 0xF0) | backlight
+        bits_low = char_mode | ((bits << 4) & 0xF0) | backlight
 
         # High nibble
         self.bus.write_byte(self.address, bits_high)
@@ -90,20 +92,20 @@ class LCD_HD44780_I2C:
         time.sleep(_DELAY)
         self.bus.write_byte(self.address, (bits | _ENABLE))
         time.sleep(0.0003)
-        self.bus.write_byte(self.address,(bits & ~_ENABLE))
+        self.bus.write_byte(self.address, (bits & ~_ENABLE))
         time.sleep(_DELAY)
-        
+
     def printLine(self, message, row):
         # Send string to display
         if (0 <= row < self.rows):
-            message = message.ljust(self.cols," ")
+            message = message.ljust(self.cols, " ")
             self._write8(_LCD_ROW_OFFSETS[row])
             for i in range(self.cols):
                 self._write8(ord(message[i]), True)
-    
+
     def resetMessage(self):
         self.message(self._last_message)
-    
+
     @property
     def message(self):
         """Display a string of text on the character LCD.
@@ -112,11 +114,11 @@ class LCD_HD44780_I2C:
 
     @message.setter
     def message(self, message):
-        #if self._message == message:
-            # We've already displayed this.
-            #return
-        #self._last_message = self._message
-        self._message = message        
+        # if self._message == message:
+        #     # We've already displayed this.
+        #     return
+        # self._last_message = self._message
+        self._message = message
         row = 0
         col = 0
         line = ""
@@ -137,13 +139,10 @@ class LCD_HD44780_I2C:
         self.printLine(line, row)
         # Fill the remainer of screen with empty characters
         for i in range(row + 1, self.rows + 1):
-            self.printLine("",i)
+            self.printLine("", i)
 
     def clear(self, backlight=True):
         if (backlight):
-            self._write8(0x01) # 000001 Clear display
+            self._write8(0x01)  # 000001 Clear display
         else:
-            self._write8(0x01, False, 0) # Clear display and turn off backlight
-        
-
-
+            self._write8(0x01, False, 0)  # Clear display and turn off backlight
