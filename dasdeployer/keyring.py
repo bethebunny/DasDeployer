@@ -1,0 +1,23 @@
+from rgb import Color, RGBButton
+import time
+
+rgbmatrix = RGBButton()
+rgbmatrix.fill(Color.YELLOW)
+print("fill")
+time.sleep(2)
+rgbmatrix.pulseKey1(Color.YELLOW, .5)
+print("flash")
+time.sleep(2)
+rgbmatrix.chaseKey1(Color.YELLOW, 10)
+time.sleep(5)
+# rgbmatrix.flashButton(Color.BLUE, 5)
+# print("fill button")
+time.sleep(25)
+# rgbmatrix.fillButton((51, 51, 51))
+# time.sleep(5)
+rgbmatrix.stopKey1()
+print("stop key")
+time.sleep(1)
+# rgbmatrix.stopKey1()
+rgbmatrix.off()
+print("off")
