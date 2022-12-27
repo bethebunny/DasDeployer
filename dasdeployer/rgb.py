@@ -19,19 +19,15 @@ inside the button.
 
 """
 
-# import time
 import neopixel
 import board
 import threading
-# import threading, queue
 from enum import Enum
 
 __version__ = "0.0.0-auto.0"
 __repo__ = "https://github.com/martinwoodward/DasDeployer.git"
 
 _PIXEL_PIN = board.D21  # NeoPixels must be connected to 10, 12, 18 or 21 to work.
-# _RING_START = 0
-# _RING_END = _BUTTON_START = _RING_PIXELS
 _RING_PIXELS = 32
 _BUTTON_PIXELS = 8
 _KEY_PIXELS = 16
@@ -45,7 +41,6 @@ _BUTTON_RANGE = slice(_BUTTON_START, _BUTTON_END)
 _KEY1_RANGE = slice(_KEY1_START, _KEY1_END)
 _KEY2_RANGE = slice(_KEY2_START, _KEY2_END)
 
-# _KEY_START = _RING_PIXELS + _BUTTON_PIXELS
 _ORDER = neopixel.GRB  # The ones I purchased have red and green reversed
 
 
@@ -378,10 +373,10 @@ class AnimateThread(threading.Thread):
             # Get a frame for the button
             button_pixels = self._animate_button(self.pixels[_BUTTON_RANGE])
             self.pixels[_BUTTON_RANGE] = button_pixels
-            # Get a frame for the key1
+            # Get a frame for key1
             key1_pixels = self._animate_key1(self.pixels[_KEY1_RANGE])
             self.pixels[_KEY1_RANGE] = key1_pixels
-            # Get a frame for the key2
+            # Get a frame for key2
             key2_pixels = self._animate_key2(self.pixels[_KEY2_RANGE])
             self.pixels[_KEY2_RANGE] = key2_pixels
             # Show them at the same time
@@ -470,75 +465,151 @@ class AnimateThread(threading.Thread):
 
         return (r, g, b)
 
+    def _flash(self, num_pixels, frame, color, duration):
+        framesOn = (duration / self.delay)
+        if frame <= framesOn:
+            pixels = [color] * num_pixels
+            frame += 1
+        else:
+            pixels = [Color.OFF] * num_pixels
+            frame += 1
+
+        # Max length of animation is twice the length of the duration
+        if frame > framesOn * 2:
+            frame = 0
+        return (frame, pixels)
+
+    def _pulse(self, num_pixels, frame, color, duration):
+        brightness = frame * (2.5 * self.delay / duration)
+        if brightness > 1.25:
+            brightness = 2.5 - brightness
+        if brightness > 1:
+            brightness = 1
+        elif brightness < 0.1:
+            # RGB lights a bit too flikery below 10%
+            brightness = 0
+        # We now have brightness as a percentage (0-1), apply equally to RGB channels
+        color = tuple(int(c * brightness) for c in color)
+        pixels = [color] * num_pixels
+        frame += 1
+        # Max length of animation is the duration
+        if frame > (duration / self.delay):
+            frame = 0
+        return (frame, pixels)
+
+    def _unicorn(self, num_pixels, frame, duration):
+        pixels = [Color.OFF] * num_pixels
+        for i in range(num_pixels):
+            pixel_index = (i * 256 // num_pixels) + frame
+            pixels[i] = self.wheel(pixel_index & 255)
+        frame += 1 + int(25 / duration)
+        # Max length of animation is 255
+        if frame > 255:
+            frame = 0
+        return (frame, pixels)
+
+    def _chase(self, num_pixels, frame, color):
+        # Define the brightness sequence for pattern
+        min_brightness = self.ring_brightness / 50
+        # Add a leading brighter pixel
+        pattern = [self.ring_brightness - ((self.ring_brightness - min_brightness) / 10)]
+        # Have a bunch of full brightness pixels
+        pattern += ([self.ring_brightness] * int(num_pixels / 6))
+        for i in range(int(num_pixels / 3)):
+            # linear drop in brightness to min brightness
+            pattern.append(
+                self.ring_brightness
+                - (((self.ring_brightness - min_brightness) / int(num_pixels / 3)) * i)
+            )
+        # rest of the pixels at min brightness
+        pattern += [min_brightness] * (num_pixels - len(pattern))
+
+        # Apply brightness to pixels & reverse the order
+        pixels = []
+        for pb in reversed(pattern):
+            pixel = tuple(int(c * pb) for c in color)
+            pixels.append(pixel)
+
+        # Rotate the pixels clockwise
+        pixels = (pixels[-frame:] + pixels[:-frame])
+        frame += 1
+        if frame >= num_pixels:
+            frame = 0
+
+        return (frame, pixels)
+
     def _animate(self, num_pixels, animation_type, frame, color, duration):
 
         if animation_type == AnimationType.FLASH:
-            framesOn = (duration / self.delay)
-            if frame <= framesOn:
-                pixels = [color] * num_pixels
-                frame += 1
-            else:
-                pixels = [Color.OFF] * num_pixels
-                frame += 1
+            (frame, pixels) = self._flash(num_pixels, frame, color, duration)
+            # framesOn = (duration / self.delay)
+            # if frame <= framesOn:
+            #     pixels = [color] * num_pixels
+            #     frame += 1
+            # else:
+            #     pixels = [Color.OFF] * num_pixels
+            #     frame += 1
 
-            # Max length of animation is twice the length of the duration
-            if frame > framesOn * 2:
-                frame = 0
+            # # Max length of animation is twice the length of the duration
+            # if frame > framesOn * 2:
+            #     frame = 0
 
         elif animation_type == AnimationType.PULSE:
-            brightness = frame * (2.5 * self.delay / duration)
-            if brightness > 1.25:
-                brightness = 2.5 - brightness
-            if brightness > 1:
-                brightness = 1
-            elif brightness < 0.1:
-                # RGB lights a bit too flikery below 10%
-                brightness = 0
-            # We now have brightness as a percentage (0-1), apply equally to RGB channels
-            color = tuple(int(c * brightness) for c in color)
-            pixels = [color] * num_pixels
-            frame += 1
-            # Max length of animation is the duration
-            if frame > (duration / self.delay):
-                frame = 0
+            (frame, pixels) = self._pulse(num_pixels, frame, color, duration)
+            # brightness = frame * (2.5 * self.delay / duration)
+            # if brightness > 1.25:
+            #     brightness = 2.5 - brightness
+            # if brightness > 1:
+            #     brightness = 1
+            # elif brightness < 0.1:
+            #     # RGB lights a bit too flikery below 10%
+            #     brightness = 0
+            # # We now have brightness as a percentage (0-1), apply equally to RGB channels
+            # color = tuple(int(c * brightness) for c in color)
+            # pixels = [color] * num_pixels
+            # frame += 1
+            # # Max length of animation is the duration
+            # if frame > (duration / self.delay):
+            #     frame = 0
 
         elif animation_type == AnimationType.UNICORN:
-
-            pixels = [Color.OFF] * num_pixels
-            for i in range(num_pixels):
-                pixel_index = (i * 256 // num_pixels) + frame
-                pixels[i] = self.wheel(pixel_index & 255)
-            frame += 1 + int(25 / duration)
-            # Max length of animation is 255
-            if frame > 255:
-                frame = 0
+            (frame, pixels) = self._unicorn(num_pixels, frame, duration)
+            # pixels = [Color.OFF] * num_pixels
+            # for i in range(num_pixels):
+            #     pixel_index = (i * 256 // num_pixels) + frame
+            #     pixels[i] = self.wheel(pixel_index & 255)
+            # frame += 1 + int(25 / duration)
+            # # Max length of animation is 255
+            # if frame > 255:
+            #     frame = 0
 
         elif animation_type == AnimationType.CHASE:
-            # Define the brightness sequence for pattern
-            min_brightness = self.ring_brightness / 50
-            # Add a leading brighter pixel
-            pattern = [self.ring_brightness - ((self.ring_brightness - min_brightness) / 10)]
-            # Have a bunch of full brightness pixels
-            pattern += ([self.ring_brightness] * int(num_pixels / 6))
-            for i in range(int(num_pixels / 3)):
-                # linear drop in brightness to min brightness
-                pattern.append(
-                    self.ring_brightness
-                    - (((self.ring_brightness - min_brightness) / int(num_pixels / 3)) * i)
-                )
-            # rest of the pixels at min brightness
-            pattern += [min_brightness] * (num_pixels - len(pattern))
+            (frame, pixels) = self._chase(num_pixels, frame, color)
+            # # Define the brightness sequence for pattern
+            # min_brightness = self.ring_brightness / 50
+            # # Add a leading brighter pixel
+            # pattern = [self.ring_brightness - ((self.ring_brightness - min_brightness) / 10)]
+            # # Have a bunch of full brightness pixels
+            # pattern += ([self.ring_brightness] * int(num_pixels / 6))
+            # for i in range(int(num_pixels / 3)):
+            #     # linear drop in brightness to min brightness
+            #     pattern.append(
+            #         self.ring_brightness
+            #         - (((self.ring_brightness - min_brightness) / int(num_pixels / 3)) * i)
+            #     )
+            # # rest of the pixels at min brightness
+            # pattern += [min_brightness] * (num_pixels - len(pattern))
 
-            # Apply brightness to pixels & reverse the order
-            pixels = []
-            for pb in reversed(pattern):
-                pixel = tuple(int(c * pb) for c in color)
-                pixels.append(pixel)
+            # # Apply brightness to pixels & reverse the order
+            # pixels = []
+            # for pb in reversed(pattern):
+            #     pixel = tuple(int(c * pb) for c in color)
+            #     pixels.append(pixel)
 
-            # Rotate the pixels clockwise
-            pixels = (pixels[-frame:] + pixels[:-frame])
-            frame += 1
-            if frame >= num_pixels:
-                frame = 0
+            # # Rotate the pixels clockwise
+            # pixels = (pixels[-frame:] + pixels[:-frame])
+            # frame += 1
+            # if frame >= num_pixels:
+            #     frame = 0
 
         return (frame, pixels)
