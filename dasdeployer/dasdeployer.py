@@ -81,6 +81,21 @@ def get_ip():
     return IP
 
 
+def format_lcd_message(
+    line1: str = "",
+    line2: str = "",
+    line3: str = "",
+    line4: str = ""
+) -> str:
+    final_string = ""
+    lines = (line1, line2, line3, line4)
+    for line in lines:
+        if len(line) > 20:
+            line = line[:17] + '...'
+        final_string += (line + '\n')
+    return final_string
+
+
 def shutdown():
     lcd.message = "Switching off..."
     sleep(3)
@@ -120,9 +135,10 @@ def deploy_question(environment):
         keys.two.when_pressed = turn_two
         rgbmatrix.fillButton(Color.OFF)
         rgbmatrix.pulseRing(Color.YELLOW)
-        lcd.message = (
-            TITLE +
-            "Turn Keys\nto activate"
+        lcd.message = format_lcd_message(
+            TITLE,
+            "Turn Keys",
+            "to activate"
         )
     else:
         deploy_question2()
@@ -138,16 +154,20 @@ def deploy_question2():
     environment = active_environment
     active_environment = None
 
-    if environment == 'Dev':
-        branch = f"branch\n{last_result.branch_dev}\n"
-    elif environment == 'Test':
-        branch = f"branch\n{last_result.branch_tst}\n"
-    elif environment == 'Stage':
-        branch = f"branch\n{last_result.branch_stage}\n"
+    if environment in ('Dev', 'Test', 'Stage'):
+        line2 = "Deploy branch"
+        if environment == 'Dev':
+            line3 = last_result.branch_dev
+        elif environment == 'Test':
+            line3 = last_result.branch_tst
+        elif environment == 'Stage':
+            line3 = last_result.branch_stage
+        line4 = f"to {environment}?"
+        lcd.message = format_lcd_message(TITLE, line2, line3, line4)
     elif environment == 'Prod':
-        branch = ""
+        line2 = "Deploy to Prod?"
+        lcd.message = format_lcd_message(TITLE, line2)
 
-    lcd.message = "{}\nDeploy {}to {}?".format(TITLE, branch, environment)
     rgbmatrix.pulseButton(Color.RED, 1)
     rgbmatrix.unicornRing(25)
     big_button.when_pressed = deploy
@@ -172,13 +192,15 @@ def deploy():
     big_button.when_pressed = None
     rgbmatrix.fillButton(Color.WHITE)
     rgbmatrix.stopRing()
-    lcd.message = "{}Deploying to {}".format(TITLE, deploy_env)
+    lcd.message = format_lcd_message(TITLE, f"Deploying to {deploy_env}")
 
     build_result = pipes.approve(deploy_env)
     rgbmatrix.chaseRing(Color.BLUE, 1)
     if build_result is not None:
-        lcd.message = "{}\nBuild {}\ntriggered to {}".format(
-            TITLE, build_result.build_number, deploy_env
+        lcd.message = format_lcd_message(
+            TITLE,
+            f"Build {build_result.build_number}",
+            f"triggered to {deploy_env}"
         )
 
 
@@ -197,18 +219,19 @@ def toggle_release():
 
 def run_diagnostics():
     """ Diagnostic menu when Red button is held down """
+    toggle_main_off()
     cpu = CPUTemperature()
-    lcd.message = TITLE + \
-        "\nIP:  " + get_ip() + \
-        "\nCPU: " + str(round(cpu.temperature)) + chr(0xDF) + \
-        "\nOff  Reset      Back"
+    lcd.message = format_lcd_message(
+        TITLE,
+        f"IP:  {get_ip()}",
+        f"CPU: {str(round(cpu.temperature))}{chr(0xDF)}",
+        "Off  Reset      Back"
+    )
     switchLight.red.on()
     switchLight.yellow.on()
     switchLight.blue.on()
 
     switch.red.wait_for_release()
-    switch.red.when_held = None
-    switch.green.when_held = None
 
     switch.red.when_pressed = shutdown
     switch.yellow.when_pressed = reboot
@@ -216,46 +239,40 @@ def run_diagnostics():
     switch.blue.wait_for_press()
 
     # Blue light pressed - reset and drop out of diagnostics mode
-    switchLight.off()
-    switch.yellow.when_pressed = None
-    switch.red.when_pressed = None
-    switch.red.when_held = run_diagnostics
-    switch.green.when_held = key_toggle
+    toggle_main_on()
     update_display(last_result)
 
 
 def key_toggle():
     """ Menu for toggling key requirement when green button is held down """
-    lcd.message = (
-        TITLE +
-        f"Keys enabled: {keys_enabled}\n\n" +
+    toggle_main_off()
+    lcd.message = format_lcd_message(
+        TITLE,
+        f"Keys enabled: {keys_enabled}",
+        "",
         "Toggle          Back"
     )
     switchLight.red.on()
     switchLight.blue.on()
 
     switch.green.wait_for_release()
-    switch.red.when_held = None
-    switch.green.when_held = None
 
     switch.red.when_pressed = toggle_keys
 
     switch.blue.wait_for_press()
 
     # Blue light pressed - reset and drop out of diagnostics mode
-    switchLight.off()
-    switch.red.when_pressed = None
-    switch.red.when_held = run_diagnostics
-    switch.green.when_held = key_toggle
+    toggle_main_on()
     update_display(last_result)
 
 
 def toggle_keys():
     global keys_enabled
     keys_enabled = not keys_enabled
-    lcd.message = (
-        TITLE +
-        f"Keys enabled: {keys_enabled}\n\n" +
+    lcd.message = format_lcd_message(
+        TITLE,
+        f"Keys enabled: {keys_enabled}",
+        "",
         "Toggle          Back"
     )
 
@@ -276,10 +293,10 @@ def deploy_in_progress(build, environment):
     print("Deploy")
     rgbmatrix.fillButton(Color.WHITE)
     rgbmatrix.chaseRing(Color.BLUE, 1)
-    lcd.message = "{}\nBuild {}\nDeploying to {}...".format(
+    lcd.message = format_lcd_message(
         TITLE,
-        build.build_number,
-        environment
+        f"Build {build.build_number}",
+        f"Deploying to {environment}"
     )
 
 
@@ -287,11 +304,11 @@ def deploy_finished(result, build, environment):
     print("Finished")
     rgbmatrix.fillButton(Color.WHITE)
     rgbmatrix.pulseRing(get_build_color(build.result))
-    lcd.message = "{}\nBuild {}...\nDeployment to {}\nStatus: {}".format(
+    lcd.message = format_lcd_message(
         TITLE,
-        build.build_number,
-        environment,
-        build.result
+        f"Build {build.build_number}",
+        f"Deployment to {environment}",
+        f"Status: {build.result}"
     )
 
 
@@ -320,10 +337,10 @@ def update_display(result: QueryResult):
         # Stage switch is up
         if (result.deploying_stage):
             # Stage deployment in progress
-            deploy_in_progress(result, "Stage")
+            deploy_in_progress(result, "Staging")
         else:
             # Stage deployment is finished
-            deploy_finished(result, result.build_stage, "Stage")
+            deploy_finished(result, result.build_stage, "Staging")
 
     elif (toggle.prod.value):
         # Prod switch is up
@@ -340,11 +357,20 @@ def update_display(result: QueryResult):
         lcd.message = TITLE
 
 
-def main():
+def toggle_main_on():
     # Attach diagnotic menu to red button when held down
     switch.red.when_held = run_diagnostics
     # Attach key toggle menu to green button when held down
     switch.green.when_held = key_toggle
+    if switch.yellow.when_held:
+        switch.yellow.when_held = None
+    if switch.blue.when_held:
+        switch.blue.when_held = None
+
+    for button in switch:
+        if button.when_pressed:
+            button.when_pressed = None
+    switchLight.off()
 
     toggle.dev.when_pressed = dev_deploy
     toggle.test.when_pressed = test_deploy
@@ -355,6 +381,25 @@ def main():
     toggle.test.when_released = toggle_release
     toggle.stage.when_released = toggle_release
     toggle.prod.when_released = toggle_release
+
+
+def toggle_main_off():
+    for button in switch:
+        if button.when_pressed:
+            button.when_pressed = None
+        if button.when_held:
+            button.when_held = None
+    switchLight.off()
+
+    for tog in toggle:
+        if tog.when_pressed:
+            tog.when_pressed = None
+        if tog.when_released:
+            tog.when_released = None
+
+
+def main():
+    toggle_main_on()
 
     # Quick init sequence to show all is well
     lcd.message = TITLE + "\n\n\n" + get_ip()
