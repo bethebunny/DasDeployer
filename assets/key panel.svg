@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="210mm"
+   height="297mm"
+   viewBox="0 0 210 297"
+   version="1.1"
+   id="svg3585"
+   inkscape:version="1.2.1 (9c6d41e410, 2022-07-14)"
+   sodipodi:docname="key panel.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview3587"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     showgrid="false"
+     inkscape:zoom="1"
+     inkscape:cx="142"
+     inkscape:cy="138.5"
+     inkscape:window-width="1294"
+     inkscape:window-height="1000"
+     inkscape:window-x="2244"
+     inkscape:window-y="148"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs3582">
+    <inkscape:path-effect
+       effect="fillet_chamfer"
+       id="path-effect3068-9"
+       is_visible="true"
+       lpeversion="1"
+       nodesatellites_param="F,0,0,1,0,6.6145833,0,1 @ F,0,0,1,0,6.6145833,0,1 @ F,0,0,1,0,6.6145833,0,1 @ F,0,0,1,0,6.6145833,0,1"
+       unit="px"
+       method="auto"
+       mode="F"
+       radius="25"
+       chamfer_steps="1"
+       flexible="false"
+       use_knot_distance="true"
+       apply_no_radius="true"
+       apply_with_radius="true"
+       only_selected="false"
+       hide_knots="false" />
+    <inkscape:path-effect
+       effect="fillet_chamfer"
+       id="path-effect3068"
+       is_visible="true"
+       lpeversion="1"
+       nodesatellites_param="F,0,0,1,0,6.6145833,0,1 @ F,0,0,1,0,6.6145833,0,1 @ F,0,0,1,0,6.6145833,0,1 @ F,0,0,1,0,6.6145833,0,1"
+       unit="px"
+       method="auto"
+       mode="F"
+       radius="25"
+       chamfer_steps="1"
+       flexible="false"
+       use_knot_distance="true"
+       apply_no_radius="true"
+       apply_with_radius="true"
+       only_selected="false"
+       hide_knots="false" />
+    <inkscape:path-effect
+       effect="fillet_chamfer"
+       id="path-effect3068-2"
+       is_visible="true"
+       lpeversion="1"
+       nodesatellites_param="F,0,0,1,0,6.6145833,0,1 @ F,0,0,1,0,6.6145833,0,1 @ F,0,0,1,0,6.6145833,0,1 @ F,0,0,1,0,6.6145833,0,1"
+       unit="px"
+       method="auto"
+       mode="F"
+       radius="25"
+       chamfer_steps="1"
+       flexible="false"
+       use_knot_distance="true"
+       apply_no_radius="true"
+       apply_with_radius="true"
+       only_selected="false"
+       hide_knots="false" />
+  </defs>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <path
+       id="path13679"
+       style="fill:none;stroke-width:0.175558;stroke:#000000;stroke-opacity:1"
+       d="m 30,20.500063 a 9.5,9.5 0 0 0 -8.599992,5.471501 v 8.056872 A 9.5,9.5 0 0 0 30,39.499937 9.5,9.5 0 0 0 38.599992,34.028436 V 25.963812 A 9.5,9.5 0 0 0 30,20.500063 Z" />
+    <path
+       style="fill:none;stroke-width:0.264583;stroke:#000000;stroke-opacity:1"
+       id="rect3064"
+       width="60"
+       height="60"
+       x="4.6999439e-16"
+       y="-5.6399334e-16"
+       inkscape:path-effect="#path-effect3068-2"
+       d="M 6.6145833,0 H 53.385417 A 6.6145833,6.6145833 45 0 1 60,6.6145833 V 53.385417 A 6.6145833,6.6145833 135 0 1 53.385417,60 H 6.6145833 A 6.6145833,6.6145833 45 0 1 0,53.385417 V 6.6145833 A 6.6145833,6.6145833 135 0 1 6.6145833,0 Z"
+       sodipodi:type="rect" />
+    <circle
+       style="fill:none;stroke:#000000;stroke-width:0.353333;stroke-dasharray:none;stroke-opacity:1"
+       id="path3122-5"
+       cx="9"
+       cy="9"
+       r="2" />
+    <circle
+       style="fill:none;stroke:#000000;stroke-width:0.353333;stroke-dasharray:none;stroke-opacity:1"
+       id="path3122-5-0"
+       cx="51"
+       cy="9"
+       r="2" />
+    <circle
+       style="fill:none;stroke:#000000;stroke-width:0.353333;stroke-dasharray:none;stroke-opacity:1"
+       id="path3122-5-3"
+       cx="51"
+       cy="51"
+       r="2" />
+    <circle
+       style="fill:none;stroke:#000000;stroke-width:0.353333;stroke-dasharray:none;stroke-opacity:1"
+       id="path3122-5-1"
+       cx="9"
+       cy="51"
+       r="2" />
+  </g>
+</svg>
