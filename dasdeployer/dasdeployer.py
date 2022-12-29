@@ -35,7 +35,7 @@ key_two_time = 0.0
 pipes = Pipelines()
 active_environment = None
 last_result = QueryResult()
-keys_enabled = False
+keys_enabled = True
 
 
 def turn_one():
@@ -82,14 +82,10 @@ def get_ip():
 
 
 def format_lcd_message(
-    line1: str = "",
-    line2: str = "",
-    line3: str = "",
-    line4: str = ""
+    *args: str
 ) -> str:
     final_string = ""
-    lines = (line1, line2, line3, line4)
-    for line in lines:
+    for line in args:
         if len(line) > 20:
             line = line[:17] + '...'
         final_string += (line + '\n')
@@ -135,6 +131,8 @@ def deploy_question(environment):
         keys.two.when_pressed = turn_two
         rgbmatrix.fillButton(Color.OFF)
         rgbmatrix.pulseRing(Color.YELLOW)
+        rgbmatrix.chaseKey1(Color.YELLOW)
+        rgbmatrix.chaseKey2(Color.YELLOW)
         lcd.message = format_lcd_message(
             TITLE,
             "Turn Keys",
@@ -150,6 +148,9 @@ def deploy_question2():
         keys.one.when_pressed = None
     if keys.two.when_pressed:
         keys.two.when_pressed = None
+    if keys_enabled:
+        rgbmatrix.pulseKey1(Color.GREEN)
+        rgbmatrix.pulseKey2(Color.GREEN)
     global active_environment
     environment = active_environment
     active_environment = None
@@ -192,6 +193,9 @@ def deploy():
     big_button.when_pressed = None
     rgbmatrix.fillButton(Color.WHITE)
     rgbmatrix.stopRing()
+    rgbmatrix.stopKey1()
+    rgbmatrix.stopKey2()
+
     lcd.message = format_lcd_message(TITLE, f"Deploying to {deploy_env}")
 
     build_result = pipes.approve(deploy_env)
@@ -209,6 +213,12 @@ def toggle_release():
     global key_two_time, key_one_time
     key_one_time = 0.0
     key_two_time = 0.0
+    rgbmatrix.stopKey1()
+    rgbmatrix.stopKey2()
+    if keys.one.when_pressed:
+        keys.one.when_pressed = None
+    if keys.two.when_pressed:
+        keys.two.when_pressed = None
 
     if last_result is None:
         print("No last result available")
