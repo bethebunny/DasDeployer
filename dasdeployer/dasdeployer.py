@@ -33,6 +33,7 @@ pipes = Pipelines()
 active_environment = None
 last_result = QueryResult()
 keys_enabled = True
+enable_main = True
 
 
 def turn_one():
@@ -100,6 +101,20 @@ def reboot():
     lcd.message = "Das rebooting..."
     leds.off()
     check_call(['sudo', 'reboot'])
+
+
+def reload_pipes():
+    lcd.message = "Reloading pipelines"
+    global pipes
+    pipes = Pipelines()
+    sleep(3)
+    cpu = CPUTemperature()
+    lcd.message = format_lcd_message(
+        TITLE,
+        f"IP:  {get_ip()}",
+        f"CPU: {str(round(cpu.temperature))}{chr(0xDF)}",
+        "Off Reset Pipes Back"
+    )
 
 
 def dev_deploy():
@@ -232,16 +247,18 @@ def run_diagnostics():
         TITLE,
         f"IP:  {get_ip()}",
         f"CPU: {str(round(cpu.temperature))}{chr(0xDF)}",
-        "Off  Reset      Back"
+        "Off Reset Pipes Back"
     )
     switchLight.red.on()
     switchLight.yellow.on()
+    switchLight.green.on()
     switchLight.blue.on()
 
     switch.red.wait_for_release()
 
     switch.red.when_pressed = shutdown
     switch.yellow.when_pressed = reboot
+    switch.green.when_pressed = reload_pipes
 
     switch.blue.wait_for_press()
 
@@ -365,6 +382,8 @@ def update_display(result: QueryResult):
 
 
 def toggle_main_on():
+    global enable_main
+    enable_main = True
     # Attach diagnotic menu to red button when held down
     switch.red.when_held = run_diagnostics
     # Attach key toggle menu to green button when held down
@@ -391,6 +410,8 @@ def toggle_main_on():
 
 
 def toggle_main_off():
+    global enable_main
+    enable_main = False
     for button in switch:
         if button.when_pressed:
             button.when_pressed = None
@@ -423,21 +444,24 @@ def main():
 
     # Display loop
     while True:
-        result = pipes.get_status()
+        if enable_main:
+            result = pipes.get_status()
 
-        # Set the state of the approval toggle LED's
-        toggleLight.dev.value = result.enable_dev
-        toggleLight.test.value = result.enable_tst
-        toggleLight.stage.value = result.enable_stage
-        toggleLight.prod.value = result.enable_prod
+            # Set the state of the approval toggle LED's
+            toggleLight.dev.value = result.enable_dev
+            toggleLight.test.value = result.enable_tst
+            toggleLight.stage.value = result.enable_stage
+            toggleLight.prod.value = result.enable_prod
 
-        if (result == last_result):
-            # Nothing has changed - lets just wait a bit
-            sleep(1)
+            if (result == last_result):
+                # Nothing has changed - lets just wait a bit
+                sleep(1)
+            else:
+                # Something has changed, update the display
+                update_display(result)
+                last_result = result
         else:
-            # Something has changed, update the display
-            update_display(result)
-            last_result = result
+            sleep(1)
 
 
 main()
