@@ -1,31 +1,76 @@
-# Configuration settings
-# Update with the PAT for the user DasDeployer is acting on behalf of
-# And copy to local_settings.py
+from dataclasses import dataclass
 
-# The Azure DevOps Organization to connect to
-ORG_URL = 'https://dev.azure.com/azuredevopsexamples'
+# DasDeployer supports multiple configurations.
+# Each config must be in a DasDeployerConfig object,
+# And must then be added to the DAS_CONFIGS list at the end of the file.
+# If multiple configs are present, DasDeployer will prompt you to select one
+# upon startup, otherwise if there is only one it will select that
+# Update these settings, and copy to local_settings.py
 
-# The GitHub server to connect to
-# Leave this as is unless connecting to a GitHub Enterprise Server instance
-GITHUB_URL = 'https://api.github.com'
 
-# The Azure DevOps PAT for a user that has permission to approve releases
-PAT = '---INSERT-YOUR-ADO-PAT-HERE-----'
+@dataclass
+class DasDeployerConfig:
+    name: str
+    ado_org_url: str
+    ado_pat: str
+    ado_project: str
+    ado_pipeline_ids: "dict[str, int]"
+    github_pat: str
+    github_repo: str
+    github_url: str = 'https://api.github.com'
 
-# The GitHub PAT for a user that has permission to read branches from the repo
-GITHUB_PAT = '---INSERT-YOUR-GH-PAT-HERE-----'
 
-# The Azure DevOps project where the build and release definitions live
-PROJECT = 'website'
+DEMO_CONFIG = DasDeployerConfig(
 
-# The GitHub repo you are deploying code from
-# Will be in form of 'user/repo' or 'org/repo'
-REPO = 'das/deployer'
+    # The Name of the project, to be displayed on screen
+    # (so keep it to 20 characters or less)
+    name="Das Deployer Demo 1",
 
-# The build definition IDs for each pipeline
-BUILD_PIPELINE_ID = {
-    'Dev': 1,
-    'Test': 2,
-    'Stage': 3,
-    'Prod': 4
-}
+    # The Azure DevOps Organization to connect to
+    ado_org_url='https://dev.azure.com/azuredevopsexamples',
+
+    # The Azure DevOps PAT for a user that has permission to approve releases
+    ado_pat='---INSERT-YOUR-ADO-PAT-HERE-----',
+
+    # The Azure DevOps project where the build and release definitions live
+    ado_project='website',
+
+    # The build definition IDs for each pipeline
+    # The keys in this dictionary must remain unchanged, only the IDs can change
+    ado_pipeline_ids={'Dev': 1, 'Test': 2, 'Stage': 3, 'Prod': 4},
+
+    # The GitHub PAT for a user that has permission to read branches from the repo
+    github_pat='---INSERT-YOUR-GH-PAT-HERE-----',
+
+    # The GitHub repo you are deploying code from
+    # Will be in form of 'user/repo' or 'org/repo'
+    github_repo='das/deployer',
+
+    # The GitHub server to connect to
+    # This will to default to the public GitHub API endpoint,
+    # so you only need to set it if you're connecting
+    # to a GitHub Enterprise Server instance
+    # github_url='https://api.github.com',
+)
+
+DAS_CONFIGS = [DEMO_CONFIG]
+
+# Below is a commented out example of a second config,
+# and how to update the DAS_CONFIGS list.
+# Each Config is completely independent, so you can change
+# any or all values neccessary for the additional project
+# This example only changes the name of the config,
+#
+
+# DEMO_CONFIG2 = DasDeployerConfig(
+#     name="Das Deployer Demo 2",
+#     ado_org_url='https://dev.azure.com/azuredevopsexamples',
+#     ado_pat='---INSERT-YOUR-ADO-PAT-HERE-----',
+#     ado_project='website',
+#     ado_pipeline_ids={'Dev': 1, 'Test': 2, 'Stage': 3, 'Prod': 4},
+#     github_pat='---INSERT-YOUR-GH-PAT-HERE-----',
+#     github_repo='das/deployer',
+#     # github_url='https://api.github.com',
+# )
+
+# DAS_CONFIGS = [DEMO_CONFIG, DEMO_CONFIG2]

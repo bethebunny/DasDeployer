@@ -6,6 +6,7 @@ from time import sleep, time
 from lcd import LCD_HD44780_I2C
 from rgb import Color, RGBButton
 from pipelines import Pipelines, QueryResult
+from local_settings import DAS_CONFIGS
 
 
 import socket
@@ -29,11 +30,12 @@ big_button = Button(7)
 key_one_time = 0.0
 key_two_time = 0.0
 
-pipes = Pipelines()
 active_environment = None
 last_result = QueryResult()
 keys_enabled = True
 enable_main = True
+select_project_index = 0
+pipes = None
 
 
 def turn_one():
@@ -106,7 +108,7 @@ def reboot():
 def reload_pipes():
     lcd.message = "Reloading pipelines"
     global pipes
-    pipes = Pipelines()
+    pipes = Pipelines(DAS_CONFIGS[select_project_index])
     sleep(3)
     cpu = CPUTemperature()
     lcd.message = format_lcd_message(
@@ -336,6 +338,46 @@ def deploy_finished(result, build, environment):
     )
 
 
+def select_project_previous():
+    global select_project_index
+    select_project_index = select_project_index - 1
+    if select_project_index < 0:
+        select_project_index = select_project_index + len(DAS_CONFIGS)
+    select_project_menu()
+
+
+def select_project_next():
+    global select_project_index
+    select_project_index = (select_project_index + 1) % len(DAS_CONFIGS)
+    select_project_menu()
+
+
+def select_project_select():
+    lcd.message = format_lcd_message(
+        TITLE,
+        "Project Selected:",
+        DAS_CONFIGS[select_project_index].name,
+        "Project loading..."
+    )
+    global pipes
+    pipes = Pipelines(DAS_CONFIGS[select_project_index])
+
+
+def select_project_menu():
+    lcd.message = format_lcd_message(
+        TITLE,
+        "Select a project",
+        DAS_CONFIGS[select_project_index].name,
+        "<-  -> Select"
+    )
+    switchLight.red.on()
+    switchLight.yellow.on()
+    switchLight.green.on()
+    switch.red.when_pressed = select_project_previous
+    switch.yellow.when_pressed = select_project_next
+    switch.green.when_pressed = select_project_select
+
+
 def update_display(result: QueryResult):
     if result is None:
         return
@@ -378,7 +420,10 @@ def update_display(result: QueryResult):
     else:
         rgbmatrix.fillButton(Color.GREEN)
         rgbmatrix.fillRing(Color.OFF)
-        lcd.message = TITLE
+        lcd.message = format_lcd_message(
+            TITLE,
+            DAS_CONFIGS[select_project_index].name
+        )
 
 
 def toggle_main_on():
@@ -427,7 +472,6 @@ def toggle_main_off():
 
 
 def main():
-    toggle_main_on()
 
     # Quick init sequence to show all is well
     lcd.message = TITLE + "\n\n\n" + get_ip()
@@ -436,6 +480,15 @@ def main():
     leds.blink(0.5, 0.5, 0, 0, 2, False)
     switchLight.blink(1, 1, 0.5, 0.5, 2, False)
     lcd.message = TITLE
+    if len(DAS_CONFIGS) == 1:
+        global pipes
+        pipes = Pipelines(DAS_CONFIGS[select_project_index])
+    else:
+        select_project_menu()
+    while not pipes:
+        sleep(1)
+
+    toggle_main_on()
 
     # Set up build polling.
     # pipes = Pipelines()
@@ -464,4 +517,5 @@ def main():
             sleep(1)
 
 
-main()
+if __name__ == '__main__':
+    main()
