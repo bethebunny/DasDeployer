@@ -1,10 +1,3 @@
-try:
-    from local_settings import (
-        ORG_URL, PAT, PROJECT, BUILD_PIPELINE_ID, GITHUB_URL, GITHUB_PAT, REPO
-    )
-except ImportError:
-    pass
-
 from azure.devops.connection import Connection
 from msrest.authentication import BasicAuthentication
 from azure.devops.released.build import Build, BuildClient, BuildDefinition
@@ -12,6 +5,7 @@ from azure.devops.released.build import Build, BuildClient, BuildDefinition
 import threading
 from github import Github
 from operator import attrgetter
+from local_settings import DasDeployerConfig
 
 
 class QueryResultStatus():
@@ -41,22 +35,36 @@ class QueryResult():
 
 
 class Pipelines():
-    def __init__(self):
+    def __init__(
+        self,
+        config: DasDeployerConfig
+
+    ):
         self._poll_thread = None
+        self.config = config
 
     def get_status(self):
         if self._poll_thread is None:
-            self._poll_thread = PollStatusThread(interval=10)
+            self._poll_thread = PollStatusThread(
+                config=self.config,
+                interval=10
+            )
             self._poll_thread.start()
         return self._poll_thread._last_result
 
     def approve(self, approve_env) -> Build:
         print("Approve env:" + approve_env)
         # Get Release Client
-        connection = Connection(base_url=ORG_URL, creds=BasicAuthentication('', PAT))
+        connection = Connection(
+            base_url=self.config.ado_org_url,
+            creds=BasicAuthentication('', self.config.ado_pat)
+        )
         build_client: BuildClient = connection.clients.get_build_client()
 
-        build_def = build_client.get_definition(PROJECT, BUILD_PIPELINE_ID[approve_env])
+        build_def = build_client.get_definition(
+            self.config.ado_project,
+            self.config.ado_pipeline_ids[approve_env]
+        )
 
         if approve_env == 'Dev':
             source_branch = self.get_status().branch_dev
@@ -75,14 +83,18 @@ class Pipelines():
         )
         build_result = build_client.queue_build(
             build=build,
-            project=PROJECT
+            project=self.config.ado_project
         )
 
         return build_result
 
 
 class PollStatusThread(threading.Thread):
-    def __init__(self, interval=10):
+    def __init__(
+        self,
+        config: DasDeployerConfig,
+        interval=10
+    ):
         super(PollStatusThread, self).__init__()
         self.daemon = True
         self.stoprequest = threading.Event()
@@ -90,9 +102,13 @@ class PollStatusThread(threading.Thread):
         self.regularInterval = interval
         self.delay = interval
 
-        self._connection = Connection(base_url=ORG_URL, creds=BasicAuthentication('', PAT))
+        self.config = config
+
+        self._connection = Connection(
+            base_url=config.ado_org_url,
+            creds=BasicAuthentication('', config.ado_pat)
+        )
         self._build_client = self._connection.clients.get_build_client()
-        self._github = Github(base_url=GITHUB_URL, login_or_token=GITHUB_PAT)
         # self._rm_client = self._connection.clients.get_release_client()
 
         self._last_result = QueryResult()
@@ -116,8 +132,11 @@ class PollStatusThread(threading.Thread):
         while True:
             # Wait a bit then poll the server again
             result = QueryResult()
-            github = Github(base_url=GITHUB_URL, login_or_token=GITHUB_PAT)
-            repo = github.get_repo(REPO)
+            github = Github(
+                base_url=self.config.github_url,
+                login_or_token=self.config.github_pat
+            )
+            repo = github.get_repo(self.config.github_repo)
             branches = repo.get_branches()
 
             dev_branches = [branch for branch in branches if branch.name.startswith('dev/')]
@@ -131,9 +150,11 @@ class PollStatusThread(threading.Thread):
             main_branches = [branch for branch in branches if branch.name == 'main']
             main_branch = main_branches[0].name if main_branches else None
 
-            for e in BUILD_PIPELINE_ID:
+            for e in self.config.ado_pipeline_ids:
                 buildDef: BuildDefinition = self._build_client.get_definition(
-                    PROJECT, BUILD_PIPELINE_ID[e], include_latest_builds=True
+                    self.config.ado_project,
+                    self.config.ado_pipeline_ids[e],
+                    include_latest_builds=True
                 )
                 if buildDef.latest_completed_build.id == buildDef.latest_build.id:
                     # build is finished
@@ -191,56 +212,58 @@ class PollStatusThread(threading.Thread):
                 break
 
 
-def pipemain():
+# def pipemain():
 
-    # Create a connection to the org
-    connection = Connection(base_url=ORG_URL, creds=BasicAuthentication('', PAT))
+#     # Create a connection to the org
+#     connection = Connection(base_url=ORG_URL, creds=BasicAuthentication('', PAT))
 
-    # Get the build status
-    build_client: BuildClient = connection.clients.get_build_client()
-    # buildDef = build_client.get_definition(PROJECT, BUILD_PIPELINE_ID, include_latest_builds=True)
-    build_def_dev = build_client.get_definition(
-        PROJECT, BUILD_PIPELINE_ID['Dev'], include_latest_builds=True
-    )
-    # build_def_tst = build_client.get_definition(
-    #     PROJECT, BUILD_PIPELINE_ID['Test'], include_latest_builds=True
-    # )
-    # build_def_stg = build_client.get_definition(
-    #     PROJECT, BUILD_PIPELINE_ID['Stage'], include_latest_builds=True
-    # )
-    build_def_prd = build_client.get_definition(
-        PROJECT, BUILD_PIPELINE_ID['Prod'], include_latest_builds=True
-    )
+#     # Get the build status
+#     build_client: BuildClient = connection.clients.get_build_client()
+#     # buildDef = build_client.get_definition(
+#     #     PROJECT, BUILD_PIPELINE_ID, include_latest_builds=True
+#     # )
+#     build_def_dev = build_client.get_definition(
+#         PROJECT, BUILD_PIPELINE_ID['Dev'], include_latest_builds=True
+#     )
+#     # build_def_tst = build_client.get_definition(
+#     #     PROJECT, BUILD_PIPELINE_ID['Test'], include_latest_builds=True
+#     # )
+#     # build_def_stg = build_client.get_definition(
+#     #     PROJECT, BUILD_PIPELINE_ID['Stage'], include_latest_builds=True
+#     # )
+#     build_def_prd = build_client.get_definition(
+#         PROJECT, BUILD_PIPELINE_ID['Prod'], include_latest_builds=True
+#     )
 
-    build = Build(
-        source_branch='dev/billing',
-        definition=build_def_dev,
-    )
-    build_result = build_client.queue_build(build=build, project=PROJECT)
-    print(build_result)
+#     build = Build(
+#         source_branch='dev/billing',
+#         definition=build_def_dev,
+#     )
+#     build_result = build_client.queue_build(build=build, project=PROJECT)
+#     print(build_result)
 
-    if build_def_prd.latest_completed_build.id == build_def_prd.latest_build.id:
-        print(
-            "Build " +
-            build_def_prd.latest_build.definition.name +
-            " " +
-            build_def_prd.latest_build.build_number +
-            " " +
-            build_def_prd.latest_completed_build.result
-        )
-    else:
-        # A build is in progress
-        print(
-            "Build " +
-            build_def_prd.latest_build.definition.name +
-            " " +
-            build_def_prd.latest_build.build_number +
-            " " +
-            build_def_prd.latest_completed_build.result +
-            " (" +
-            build_def_prd.latest_build.status +
-            ")"
-        )
+#     if build_def_prd.latest_completed_build.id == build_def_prd.latest_build.id:
+#         print(
+#             "Build " +
+#             build_def_prd.latest_build.definition.name +
+#             " " +
+#             build_def_prd.latest_build.build_number +
+#             " " +
+#             build_def_prd.latest_completed_build.result
+#         )
+#     else:
+#         # A build is in progress
+#         print(
+#             "Build " +
+#             build_def_prd.latest_build.definition.name +
+#             " " +
+#             build_def_prd.latest_build.build_number +
+#             " " +
+#             build_def_prd.latest_completed_build.result +
+#             " (" +
+#             build_def_prd.latest_build.status +
+#             ")"
+#         )
 
     # Get Release Client
     # rm_client = connection.clients.get_release_client()
