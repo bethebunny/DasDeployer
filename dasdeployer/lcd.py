@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 `dasdeployer.lcd`
 ====================================================
@@ -27,7 +28,7 @@ Code inspired by Adafruit's excellent CircuitPython CharLCD library
 * python3-smbus, i2c-tools
 
 """
-import smbus
+import smbus2
 import time
 
 __version__ = "0.0.0-auto.0"
@@ -53,7 +54,7 @@ class LCD_HD44780_I2C:
         self._last_message = ""
 
         # Initialise the bus
-        self.bus = smbus.SMBus(1)  # Modern Pi uses 1, old Pi's (Rev 1) use 0
+        self.bus = smbus2.SMBus(1)  # Modern Pi uses 1, old Pi's (Rev 1) use 0
 
         # Use the bus to initialise the display using some magic bits
         self._write8(0x33)  # 110011 Initialise

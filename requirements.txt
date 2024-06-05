@@ -1,3 +1,8 @@
-PyGithub
+PyGithub==2.3.0
 azure-devops
-pycircleci
+pycircleci==0.7.0
+gpiozero==1.6.2
+smbus2==0.4.3
+adafruit-circuitpython-neopixel==6.3.11
+rpi-ws281x==4.3.4
+RPi.GPIO==0.7.1

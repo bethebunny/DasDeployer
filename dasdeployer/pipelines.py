@@ -6,7 +6,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 import threading
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Optional, Union, Any
 from github import Github, Auth
 from operator import attrgetter
 
@@ -68,7 +68,17 @@ class QueryResult:
     branch_tst: Optional[str] = None
     branch_stage: Optional[str] = None
     branch_prod: Optional[str] = None
+    changed = False
 
+    def __setattr__(self, name: str, value: Any) -> None:
+        if self.__getattribute__(name) == value:
+            pass
+        else:
+            super().__setattr__(name, value)
+            super().__setattr__('changed', True)
+
+    def reset(self) -> None:
+        super().__setattr__('changed', False)
 
 class Pipelines():
     _poll_thread: Optional["PollStatusThread"]

@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 from azure.devops.connection import Connection
 from msrest.authentication import BasicAuthentication
 from azure.devops.released.build import Build, BuildClient, BuildDefinition

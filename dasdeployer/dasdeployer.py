@@ -5,8 +5,10 @@ from subprocess import check_call
 from time import sleep, time
 from lcd import LCD_HD44780_I2C
 from rgb import Color, RGBButton
-from pipelines import Pipelines, QueryResult
+from pipelines import Pipelines, QueryResult, QueryResultStatus, BuildState
 from local_settings import DAS_CONFIGS
+
+from typing import cast, Optional, Tuple
 
 
 import socket
@@ -35,24 +37,24 @@ last_result = QueryResult()
 keys_enabled = True
 enable_main = True
 select_project_index = 0
-pipes = None
+pipes: Optional[Pipelines] = None
 
 
-def turn_one():
+def turn_one() -> None:
     print("one turned")
     global key_one_time
     key_one_time = time()
     check_keys()
 
 
-def turn_two():
+def turn_two() -> None:
     print("two turned")
     global key_two_time
     key_two_time = time()
     check_keys()
 
 
-def check_keys():
+def check_keys() -> None:
     global key_two_time, key_one_time
     if key_one_time and key_two_time:
         time_diff = key_one_time - key_two_time
@@ -68,12 +70,12 @@ def check_keys():
 
 
 # Nifty get_ip function from Jamieson Becker https://stackoverflow.com/a/28950776
-def get_ip():
+def get_ip() -> str:
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         # doesn't even have to be reachable
         s.connect(('10.255.255.255', 1))
-        IP = s.getsockname()[0]
+        IP = cast(str, s.getsockname()[0])
     except Exception:
         IP = '127.0.0.1'
     finally:
@@ -92,23 +94,23 @@ def format_lcd_message(
     return final_string
 
 
-def shutdown():
+def shutdown() -> None:
     lcd.message = "Switching off..."
     sleep(3)
     leds.off()
     check_call(['sudo', 'poweroff'])
 
 
-def reboot():
+def reboot() -> None:
     lcd.message = "Das rebooting..."
     leds.off()
     check_call(['sudo', 'reboot'])
 
 
-def reload_pipes():
+def reload_pipes() -> None:
     lcd.message = "Reloading pipelines"
     global pipes
-    pipes = Pipelines(DAS_CONFIGS[select_project_index])
+    pipes = DAS_CONFIGS[select_project_index].pipeline_class(DAS_CONFIGS[select_project_index])
     sleep(3)
     cpu = CPUTemperature()
     lcd.message = format_lcd_message(
@@ -119,23 +121,23 @@ def reload_pipes():
     )
 
 
-def dev_deploy():
+def dev_deploy() -> None:
     deploy_question("Dev")
 
 
-def test_deploy():
+def test_deploy() -> None:
     deploy_question("Test")
 
 
-def stage_deploy():
+def stage_deploy() -> None:
     deploy_question("Stage")
 
 
-def prod_deploy():
+def prod_deploy() -> None:
     deploy_question("Prod")
 
 
-def deploy_question(environment):
+def deploy_question(environment: str) -> None:
     print("Toggle up")
     global active_environment
     active_environment = environment
@@ -156,7 +158,7 @@ def deploy_question(environment):
         deploy_question2()
 
 
-def deploy_question2():
+def deploy_question2() -> None:
     print("Toggle up2")
     if keys.one.when_pressed:
         keys.one.when_pressed = None
@@ -171,12 +173,14 @@ def deploy_question2():
 
     if environment in ('Dev', 'Test', 'Stage'):
         line2 = "Deploy branch"
-        if environment == 'Dev':
+        if environment == 'Dev' and last_result.branch_dev:
             line3 = last_result.branch_dev
-        elif environment == 'Test':
+        elif environment == 'Test' and last_result.branch_tst:
             line3 = last_result.branch_tst
-        elif environment == 'Stage':
+        elif environment == 'Stage' and last_result.branch_stage:
             line3 = last_result.branch_stage
+        else:
+            line3 = ""
         line4 = f"to {environment}?"
         lcd.message = format_lcd_message(TITLE, line2, line3, line4)
     elif environment == 'Prod':
@@ -188,7 +192,7 @@ def deploy_question2():
     big_button.when_pressed = deploy
 
 
-def deploy():
+def deploy() -> None:
     # Find what we should be deploying.
     deploy_env = None
     if (toggle.prod.value):
@@ -211,18 +215,18 @@ def deploy():
     rgbmatrix.stopKey2()
 
     lcd.message = format_lcd_message(TITLE, f"Deploying to {deploy_env}")
+    if pipes:
+        build_result = pipes.approve(deploy_env)
+        rgbmatrix.chaseRing(Color.BLUE, 1)
+        if build_result is not None:
+            lcd.message = format_lcd_message(
+                TITLE,
+                f"Build {build_result.number}",
+                f"triggered to {deploy_env}"
+            )
 
-    build_result = pipes.approve(deploy_env)
-    rgbmatrix.chaseRing(Color.BLUE, 1)
-    if build_result is not None:
-        lcd.message = format_lcd_message(
-            TITLE,
-            f"Build {build_result.number}",
-            f"triggered to {deploy_env}"
-        )
 
-
-def toggle_release():
+def toggle_release() -> None:
     print("Toggle down")
     global key_two_time, key_one_time
     key_one_time = 0.0
@@ -241,7 +245,7 @@ def toggle_release():
         update_display(last_result)
 
 
-def run_diagnostics():
+def run_diagnostics() -> None:
     """ Diagnostic menu when Red button is held down """
     toggle_main_off()
     cpu = CPUTemperature()
@@ -269,7 +273,7 @@ def run_diagnostics():
     update_display(last_result)
 
 
-def key_toggle():
+def key_toggle() -> None:
     """ Menu for toggling key requirement when green button is held down """
     toggle_main_off()
     lcd.message = format_lcd_message(
@@ -292,7 +296,7 @@ def key_toggle():
     update_display(last_result)
 
 
-def toggle_keys():
+def toggle_keys() -> None:
     global keys_enabled
     keys_enabled = not keys_enabled
     lcd.message = format_lcd_message(
@@ -303,42 +307,43 @@ def toggle_keys():
     )
 
 
-def get_build_color(build_result):
-    if (build_result == "succeeded"):
-        return Color.GREEN
-    elif (build_result == "failed"):
-        return Color.RED
-    elif (build_result == "canceled"):
-        return Color.WHITE
-    elif (build_result == "partiallySucceeded"):
-        return Color.YELLOW
+def get_build_color(build_result: BuildState) -> Tuple[int, int, int]:
+    if build_result:
+        if (build_result.result == QueryResultStatus.SUCCEEDED):
+            return Color.GREEN
+        elif (build_result.result == QueryResultStatus.FAILED):
+            return Color.RED
+        elif (build_result.result == QueryResultStatus.CANCELED):
+            return Color.WHITE
+        elif (build_result.result == QueryResultStatus.PARTIAL):
+            return Color.YELLOW
     return Color.OFF
 
 
-def deploy_in_progress(build, environment):
+def deploy_in_progress(build: BuildState, environment: str) -> None:
     print("Deploy")
     rgbmatrix.fillButton(Color.WHITE)
     rgbmatrix.chaseRing(Color.BLUE, 1)
     lcd.message = format_lcd_message(
         TITLE,
-        f"Build {build.build_number}",
+        f"Build {build.number}",
         f"Deploying to {environment}"
     )
 
 
-def deploy_finished(result, build, environment):
+def deploy_finished(result: QueryResult, build: BuildState, environment: str) -> None:
     print("Finished")
     rgbmatrix.fillButton(Color.WHITE)
-    rgbmatrix.pulseRing(get_build_color(build.result))
+    rgbmatrix.pulseRing(get_build_color(build))
     lcd.message = format_lcd_message(
         TITLE,
-        f"Build {build.build_number}",
+        f"Build {build.number}",
         f"Deployment to {environment}",
         f"Status: {build.result}"
     )
 
 
-def select_project_previous():
+def select_project_previous() -> None:
     global select_project_index
     select_project_index = select_project_index - 1
     if select_project_index < 0:
@@ -346,13 +351,13 @@ def select_project_previous():
     select_project_menu()
 
 
-def select_project_next():
+def select_project_next() -> None:
     global select_project_index
     select_project_index = (select_project_index + 1) % len(DAS_CONFIGS)
     select_project_menu()
 
 
-def select_project_select():
+def select_project_select() -> None:
     lcd.message = format_lcd_message(
         TITLE,
         "Project Selected:",
@@ -360,10 +365,10 @@ def select_project_select():
         "Project loading..."
     )
     global pipes
-    pipes = Pipelines(DAS_CONFIGS[select_project_index])
+    pipes = DAS_CONFIGS[select_project_index].pipeline_class(DAS_CONFIGS[select_project_index])
 
 
-def select_project_menu():
+def select_project_menu() -> None:
     lcd.message = format_lcd_message(
         TITLE,
         "Select a project",
@@ -378,44 +383,51 @@ def select_project_menu():
     switch.green.when_pressed = select_project_select
 
 
-def update_display(result: QueryResult):
+def update_display(result: QueryResult) -> None:
     if result is None:
         return
 
     elif (toggle.dev.value):
         # Dev switch is up
-        if (result.deploying_dev):
+        if (result.deploying_dev and result.build_dev):
             # Dev deployment in progress
             deploy_in_progress(result.build_dev, "Dev")
-        else:
+        elif result.build_dev:
             # Dev deployment is finished
             deploy_finished(result, result.build_dev, "Dev")
+        else:
+            pass
 
     elif (toggle.test.value):
         # Test switch is up
-        if (result.deploying_tst):
+        if (result.deploying_tst and result.build_tst):
             # Test deployment in progress
-            deploy_in_progress(result, "Test")
+            deploy_in_progress(result.build_tst, "Test")
+        elif result.build_tst:
+            deploy_finished(result, result.build_tst, "Test")
         else:
-            deploy_finished(result, result.build_stage, "Test")
+            pass
 
     elif (toggle.stage.value):
         # Stage switch is up
-        if (result.deploying_stage):
+        if (result.deploying_stage and result.build_stage):
             # Stage deployment in progress
-            deploy_in_progress(result, "Staging")
-        else:
+            deploy_in_progress(result.build_stage, "Staging")
+        elif result.build_stage:
             # Stage deployment is finished
             deploy_finished(result, result.build_stage, "Staging")
+        else:
+            pass
 
     elif (toggle.prod.value):
         # Prod switch is up
-        if (result.deploying_prod):
+        if (result.deploying_prod and result.build_prod):
             # Prod deployment in progress
             deploy_in_progress(result.build_prod, "Prod")
-        else:
+        elif result.build_prod:
             # Prod deoployment is finished
             deploy_finished(result, result.build_prod, "Prod")
+        else: pass
 
     else:
         rgbmatrix.fillButton(Color.GREEN)
@@ -426,7 +438,7 @@ def update_display(result: QueryResult):
         )
 
 
-def toggle_main_on():
+def toggle_main_on() -> None:
     global enable_main
     enable_main = True
     # Attach diagnotic menu to red button when held down
@@ -454,7 +466,7 @@ def toggle_main_on():
     toggle.prod.when_released = toggle_release
 
 
-def toggle_main_off():
+def toggle_main_off() -> None:
     global enable_main
     enable_main = False
     for button in switch:
@@ -471,7 +483,7 @@ def toggle_main_off():
             tog.when_released = None
 
 
-def main():
+def main() -> None:
 
     # Quick init sequence to show all is well
     lcd.message = TITLE + "\n\n\n" + get_ip()
@@ -482,7 +494,7 @@ def main():
     lcd.message = TITLE
     if len(DAS_CONFIGS) == 1:
         global pipes
-        pipes = Pipelines(DAS_CONFIGS[select_project_index])
+        pipes = DAS_CONFIGS[select_project_index].pipeline_class(DAS_CONFIGS[select_project_index])
     else:
         select_project_menu()
     while not pipes:
@@ -498,21 +510,24 @@ def main():
     # Display loop
     while True:
         if enable_main:
-            result = pipes.get_status()
+            # result = pipes.get_status()
 
             # Set the state of the approval toggle LED's
-            toggleLight.dev.value = result.enable_dev
-            toggleLight.test.value = result.enable_tst
-            toggleLight.stage.value = result.enable_stage
-            toggleLight.prod.value = result.enable_prod
+            toggleLight.dev.value = last_result.enable_dev
+            toggleLight.test.value = last_result.enable_tst
+            toggleLight.stage.value = last_result.enable_stage
+            toggleLight.prod.value = last_result.enable_prod
 
-            if (result == last_result):
+            # update_display(last_result)
+            # sleep(1)
+
+            if (last_result.changed):
+                # Something has changed, update the display
+                update_display(last_result)
+                last_result.reset()
+            else:
                 # Nothing has changed - lets just wait a bit
                 sleep(1)
-            else:
-                # Something has changed, update the display
-                update_display(result)
-                last_result = result
         else:
             sleep(1)
 
