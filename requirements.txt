@@ -1,0 +1,3 @@
+PyGithub
+azure-devops
+pycircleci

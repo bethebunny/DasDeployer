@@ -217,7 +217,7 @@ def deploy():
     if build_result is not None:
         lcd.message = format_lcd_message(
             TITLE,
-            f"Build {build_result.build_number}",
+            f"Build {build_result.number}",
             f"triggered to {deploy_env}"
         )
 
