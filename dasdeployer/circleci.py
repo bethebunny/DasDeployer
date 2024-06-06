@@ -13,7 +13,7 @@ from typing import cast, Any, TYPE_CHECKING, Optional, Dict, List
 from pipelines import QueryResult, Pipelines, PollStatusThread, BuildState, QueryResultStatus
 import time
 
-now = 0
+now = 0.0
 
 if TYPE_CHECKING:
     from local_settings import CircleCIConfig
@@ -70,7 +70,7 @@ class CircleCI(Pipelines):
     #         self._poll_thread.start()
     #     return self._poll_thread._last_result
 
-    def approve(self, approve_env: str) -> Optional[CircleBuildState]:
+    def approve(self, approve_env: str, params: Dict[str, str]) -> Optional[CircleBuildState]:
         print("Approve env:" + approve_env)
         # Get Release Client
         # connection = Connection(
@@ -103,10 +103,12 @@ class CircleCI(Pipelines):
         #     build=build,
         #     project=self.config.ado_project
         # )
+        print(f"username={self.config.circle_org} project={self.config.circle_project} branch={source_branch} params={params} bool_params={bool(params)}")
         build_result: Dict[str, str] = self.connection.trigger_pipeline(
             username=self.config.circle_org,
             project=self.config.circle_project,
-            branch=source_branch
+            branch=source_branch,
+            params=params,
         )
         state = CircleBuildState(
             number=int(build_result['number']),
@@ -193,7 +195,8 @@ class CirclePollStatusThread(PollStatusThread):
             new_now = time.time()
             print(f"running, last run {new_now - now} seconds ago")
             now = new_now
-            for e, value in self.config.circle_workflows.items():
+            # for e, value in self.config.circle_workflows.items():
+            for e, value in self.config.environments.items():
                 # if value:
                 if e == 'Dev':
                     self._last_result.enable_dev = bool(value)

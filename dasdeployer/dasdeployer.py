@@ -6,9 +6,10 @@ from time import sleep, time
 from lcd import LCD_HD44780_I2C
 from rgb import Color, RGBButton
 from pipelines import Pipelines, QueryResult, QueryResultStatus, BuildState
-from local_settings import DAS_CONFIGS
+from local_settings import DAS_CONFIGS, PromptedParameter
+from serial import Serial
 
-from typing import cast, Optional, Tuple
+from typing import cast, Optional, Tuple, Dict
 
 
 import socket
@@ -28,6 +29,8 @@ leds = LEDBoard(switchLight, toggleLight)
 lcd = LCD_HD44780_I2C()
 rgbmatrix = RGBButton()
 big_button = Button(7)
+serial = Serial(baudrate=960, timeout=0)
+serial.port = '/dev/ttyACM1'
 
 key_one_time = 0.0
 key_two_time = 0.0
@@ -38,6 +41,8 @@ keys_enabled = True
 enable_main = True
 select_project_index = 0
 pipes: Optional[Pipelines] = None
+
+params: Dict[str, str] = {}
 
 
 def turn_one() -> None:
@@ -137,10 +142,44 @@ def prod_deploy() -> None:
     deploy_question("Prod")
 
 
+def get_prompt_value(prompt: PromptedParameter) -> str:
+    with serial as s:
+        s.write(b"start")
+        print("sent start")
+        sleep(1)
+        s.write((prompt.allowed_chars).encode())
+        print("sent alllowed chars")
+        response = ""
+        while not response:
+            result = s.readline()
+            if result:
+                response = result.decode().strip()
+                print(response)
+
+        sleep(1)
+        s.write(b"end")
+
+    return response
+
+
 def deploy_question(environment: str) -> None:
     print("Toggle up")
+    print(environment)
     global active_environment
     active_environment = environment
+    global params
+    params = {}
+
+    if environment == "Prod" and pipes:
+        env = pipes.config.environments[environment]
+        if env:
+            prompts = env.prompted_parms
+            for prompt in prompts:
+                value = get_prompt_value(prompt)
+                print(f"value={value} param_name={prompt.paramater_name}")
+                print(f"params before={params}")
+                params[prompt.paramater_name] = value
+                print(f"params after={params}")
 
     if keys_enabled:
         keys.one.when_pressed = turn_one
@@ -216,7 +255,7 @@ def deploy() -> None:
 
     lcd.message = format_lcd_message(TITLE, f"Deploying to {deploy_env}")
     if pipes:
-        build_result = pipes.approve(deploy_env)
+        build_result = pipes.approve(deploy_env, params)
         rgbmatrix.chaseRing(Color.BLUE, 1)
         if build_result is not None:
             lcd.message = format_lcd_message(

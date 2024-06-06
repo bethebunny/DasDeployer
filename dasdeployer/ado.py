@@ -6,7 +6,7 @@ from azure.devops.released.build import Build, BuildClient, BuildDefinition
 import threading
 from github import Github
 from operator import attrgetter
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Dict
 
 if TYPE_CHECKING:
     from local_settings import ADOConfig
@@ -56,7 +56,7 @@ class AdoPipelines():
             self._poll_thread.start()
         return self._poll_thread._last_result
 
-    def approve(self, approve_env) -> Optional[str]:
+    def approve(self, approve_env, params: Dict[str, str]) -> Optional[str]:
         print("Approve env:" + approve_env)
         # Get Release Client
         connection = Connection(

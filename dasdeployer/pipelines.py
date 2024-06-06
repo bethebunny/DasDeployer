@@ -6,7 +6,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 import threading
-from typing import TYPE_CHECKING, Optional, Union, Any
+from typing import TYPE_CHECKING, Optional, Union, Any, Dict
 from github import Github, Auth
 from operator import attrgetter
 
@@ -118,7 +118,7 @@ class Pipelines():
             self._poll_thread.start()
         return self._poll_thread._last_result
 
-    def approve(self, approve_env: str) -> Optional[BuildState]:
+    def approve(self, approve_env: str, params: Dict[str, str]) -> Optional[BuildState]:
         print("Approve env:" + approve_env)
         raise NotImplementedError
         # print("Approve env:" + approve_env)
