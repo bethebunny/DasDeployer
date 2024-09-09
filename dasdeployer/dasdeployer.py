@@ -29,7 +29,7 @@ leds = LEDBoard(switchLight, toggleLight)
 lcd = LCD_HD44780_I2C()
 rgbmatrix = RGBButton()
 big_button = Button(7)
-serial = Serial(baudrate=960, timeout=0)
+serial = Serial(baudrate=9600, timeout=0)
 serial.port = '/dev/ttyACM1'
 
 key_one_time = 0.0
