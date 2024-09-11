@@ -1,19 +1,20 @@
 # from azure.devops.connection import Connection
 # from msrest.authentication import BasicAuthentication
 # from azure.devops.released.build import Build, BuildClient, BuildDefinition
-from __future__ import annotations
+# from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
 import threading
-from typing import TYPE_CHECKING, Optional, Union, Any, Dict
+from typing import TYPE_CHECKING, Any
 from github import Github, Auth
-from operator import attrgetter
+# from operator import attrgetter
 
 if TYPE_CHECKING:
     from local_settings import DasDeployerConfig
-    from pycircleci.api import API
+    from pycircleci.api import Api
     from azure.devops.connection import Connection
+    from github.Repository import Repository
 
 
 class QueryResultStatus(str, Enum):
@@ -60,14 +61,14 @@ class QueryResult:
     deploying_tst = False
     deploying_stage = False
     deploying_prod = False
-    build_dev: Optional[BuildState] = None
-    build_tst: Optional[BuildState] = None
-    build_stage: Optional[BuildState] = None
-    build_prod: Optional[BuildState] = None
-    branch_dev: Optional[str] = None
-    branch_tst: Optional[str] = None
-    branch_stage: Optional[str] = None
-    branch_prod: Optional[str] = None
+    build_dev: BuildState | None = None
+    build_tst: BuildState | None = None
+    build_stage: BuildState | None = None
+    build_prod: BuildState | None = None
+    branch_dev: str | None = None
+    branch_tst: str | None = None
+    branch_stage: str | None = None
+    branch_prod: str | None = None
     changed = False
 
     def __setattr__(self, name: str, value: Any) -> None:
@@ -81,30 +82,34 @@ class QueryResult:
         super().__setattr__('changed', False)
 
 class Pipelines():
-    _poll_thread: Optional["PollStatusThread"]
+    _poll_thread: "PollStatusThread" | None
     config: DasDeployerConfig
     github_conn: Github
     last_result: QueryResult
-    connection: Union[API, Connection]
+    connection: Api | Connection | Repository
 
     def __init__(
         self,
         config: DasDeployerConfig,
         poll_thread_class: type,
-        connection: Union[API, Connection],
+        connection: Api | Connection | None,
 
     ):
         self._poll_thread = None
         self.config = config
         self.last_result = QueryResult()
         self._poll_thread_class = poll_thread_class
-        self.connection = connection
+        # self.connection = connection
         gh_auth = Auth.Token(config.github_pat)
         # github_args = {'login_or_token': config.github_pat}
         if config.github_url:
             self.github_conn = Github(auth=gh_auth, base_url=config.github_url)
         else:
             self.github_conn = Github(auth=gh_auth)
+        if connection is None:
+            self.connection = self.github_conn.get_repo(self.config.github_repo)
+        else:
+            self.connection = connection
 
     def get_status(self) -> QueryResult:
         if self._poll_thread is None:
@@ -118,7 +123,11 @@ class Pipelines():
             self._poll_thread.start()
         return self._poll_thread._last_result
 
-    def approve(self, approve_env: str, params: Dict[str, str]) -> Optional[BuildState]:
+    def stop(self) -> None:
+        if self._poll_thread:
+            self._poll_thread.stop()
+
+    def approve(self, approve_env: str, params: dict[str, str]) -> BuildState | None:
         print("Approve env:" + approve_env)
         raise NotImplementedError
         # print("Approve env:" + approve_env)
@@ -162,7 +171,7 @@ class PollStatusThread(threading.Thread):
         self,
         config: DasDeployerConfig,
         github_conn: Github,
-        # pipelines: Pipelines,
+        connection: Api | Connection | Repository,
         last_result: QueryResult,
         interval: int = 10
     ):
@@ -176,6 +185,7 @@ class PollStatusThread(threading.Thread):
 
         self.config = config
         self._github_conn = github_conn
+        self._connection = connection
 
         # self._connection = Connection(
         #     base_url=config.ado_org_url,
@@ -190,11 +200,11 @@ class PollStatusThread(threading.Thread):
         self.stoprequest.clear()
         super(PollStatusThread, self).start()
 
-    def stop(self, timeout: Optional[float] = 10) -> None:
+    def stop(self, timeout: float | None = 10) -> None:
         self.stoprequest.set()
         self.join(timeout)
 
-    def join(self, timeout: Optional[float] = 10) -> None:
+    def join(self, timeout: float | None = 10) -> None:
         super(PollStatusThread, self).join(timeout)
         if self.is_alive():
             assert timeout is not None

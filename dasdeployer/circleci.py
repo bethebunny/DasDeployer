@@ -8,7 +8,7 @@ from pycircleci.api import Api
 from github import Github
 # from operator import attrgetter
 from dataclasses import dataclass
-from typing import cast, Any, TYPE_CHECKING, Optional, Dict, List
+from typing import cast, Any, TYPE_CHECKING
 # from local_settings import CircleCIConfig
 from pipelines import QueryResult, Pipelines, PollStatusThread, BuildState, QueryResultStatus
 import time
@@ -49,6 +49,7 @@ class CircleBuildState(BuildState):
 
 class CircleCI(Pipelines):
     config: "CircleCIConfig"
+    connection: Api
     def __init__(
         self,
         config: "CircleCIConfig",
@@ -70,7 +71,7 @@ class CircleCI(Pipelines):
     #         self._poll_thread.start()
     #     return self._poll_thread._last_result
 
-    def approve(self, approve_env: str, params: Dict[str, str]) -> Optional[CircleBuildState]:
+    def approve(self, approve_env: str, params: dict[str, str]) -> CircleBuildState | None:
         print("Approve env:" + approve_env)
         # Get Release Client
         # connection = Connection(
@@ -104,7 +105,7 @@ class CircleCI(Pipelines):
         #     project=self.config.ado_project
         # )
         print(f"username={self.config.circle_org} project={self.config.circle_project} branch={source_branch} params={params} bool_params={bool(params)}")
-        build_result: Dict[str, str] = self.connection.trigger_pipeline(
+        build_result: dict[str, str] = self.connection.trigger_pipeline(
             username=self.config.circle_org,
             project=self.config.circle_project,
             branch=source_branch,
@@ -129,6 +130,7 @@ class CircleCI(Pipelines):
 
 class CirclePollStatusThread(PollStatusThread):
     config: "CircleCIConfig"
+    _connnection: Api
     def __init__(
         self,
         config: "CircleCIConfig",
@@ -140,6 +142,7 @@ class CirclePollStatusThread(PollStatusThread):
         super().__init__(
             config=config,
             github_conn=github_conn,
+            connection=connection,
             last_result=last_result,
             interval=interval,
         )
@@ -151,7 +154,7 @@ class CirclePollStatusThread(PollStatusThread):
 
         # self.config = config
 
-        self._connection = connection
+        # self._connection = connection
 
         # self._last_result = QueryResult()
 
@@ -237,7 +240,7 @@ class CirclePollStatusThread(PollStatusThread):
 
                 # Get build id (workflow id?) from last_result (store it when approved)
                 if state:
-                    workflows: List[Dict[str, Any]] = self._connection.get_pipeline_workflow(
+                    workflows: list[dict[str, Any]] = self._connection.get_pipeline_workflow(
                         pipeline_id=state.pipeline_id,
                         paginate=True
                     )
