@@ -46,7 +46,7 @@ _DELAY = 0.0003
 
 
 class LCD_HD44780_I2C:
-    def __init__(self, cols=20, rows=4, address=0x27):
+    def __init__(self, cols=20, rows=4, address=0x27) -> None:
         self.cols = cols
         self.rows = rows
         self.address = address

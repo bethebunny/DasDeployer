@@ -64,7 +64,7 @@ class AnimationType(Enum):
 
 
 class RGBButton():
-    def __init__(self, brightness=1, ring_brightness=0.2, fps=32):
+    def __init__(self, brightness=1, ring_brightness=0.2, fps=32) -> None:
         assert 0 <= brightness <= 1
         assert 0 <= ring_brightness <= 1
         assert fps > 0
@@ -95,12 +95,12 @@ class RGBButton():
         self.pixels[_KEY2_RANGE] = [ring_color] * _KEY_PIXELS
         self.pixels.show()
 
-    def fillButton(self, color):
+    def fillButton(self, color) -> None:
         self._animate_stop()
         self.pixels[_BUTTON_RANGE] = [color] * _BUTTON_PIXELS
         self.pixels.show()
 
-    def fillRing(self, color):
+    def fillRing(self, color) -> None:
         self._animate_stop()
         # Ring appears brighter to the eye than the button so reduce intensity of the LEDS
         ring_color = tuple(int(c * self.ring_brightness) for c in color)
@@ -131,7 +131,7 @@ class RGBButton():
             self._animate_thread = AnimateThread(self.pixels, self.ring_brightness, self.delay)
             self._animate_thread.start()
 
-    def pulseButton(self, color=Color.WHITE, duration=1):
+    def pulseButton(self, color=Color.WHITE, duration=1) -> None:
         self._animate_start()
         self._animate_thread.button_animation = {
             "type": AnimationType.PULSE,
@@ -161,7 +161,7 @@ class RGBButton():
         self.pixels[_BUTTON_RANGE] = [Color.OFF] * _BUTTON_PIXELS
         self.pixels.show()
 
-    def unicornRing(self, duration=25):
+    def unicornRing(self, duration=25) -> None:
         self._animate_start()
         self._animate_thread.ring_animation = {
             "type": AnimationType.UNICORN,
@@ -169,7 +169,7 @@ class RGBButton():
             "duration": duration
         }
 
-    def pulseRing(self, color=(0, 0, 100), duration=2.5):
+    def pulseRing(self, color=(0, 0, 100), duration=2.5) -> None:
         self._animate_start()
         ring_color = tuple(int(c * self.ring_brightness) for c in color)
         self._animate_thread.ring_animation = {
@@ -178,7 +178,7 @@ class RGBButton():
             "duration": duration
         }
 
-    def chaseRing(self, color=(0, 0, 255), duration=5):
+    def chaseRing(self, color=(0, 0, 255), duration=5) -> None:
         self._animate_start()
         self._animate_thread.ring_animation = {
             "type": AnimationType.CHASE,
@@ -195,7 +195,7 @@ class RGBButton():
             "duration": duration
         }
 
-    def stopRing(self):
+    def stopRing(self) -> None:
         if self._animate_thread is not None:
             if (
                 self._animate_thread.button_animation is None
@@ -210,7 +210,7 @@ class RGBButton():
         self.pixels[_RING_RANGE] = [Color.OFF] * _RING_PIXELS
         self.pixels.show()
 
-    def stopKey1(self):
+    def stopKey1(self) -> None:
         if self._animate_thread is not None:
             if (
                 self._animate_thread.button_animation is None
@@ -225,7 +225,7 @@ class RGBButton():
         self.pixels[_KEY1_RANGE] = [Color.OFF] * _KEY_PIXELS
         self.pixels.show()
 
-    def stopKey2(self):
+    def stopKey2(self) -> None:
         if self._animate_thread is not None:
             if (
                 self._animate_thread.button_animation is None
@@ -240,7 +240,7 @@ class RGBButton():
         self.pixels[_KEY2_RANGE] = [Color.OFF] * _KEY_PIXELS
         self.pixels.show()
 
-    def chaseKey1(self, color=(0, 0, 255), duration=5):
+    def chaseKey1(self, color=(0, 0, 255), duration=5) -> None:
         self._animate_start()
         self._animate_thread.key1_animation = {
             "type": AnimationType.CHASE,
@@ -248,7 +248,7 @@ class RGBButton():
             "duration": duration
         }
 
-    def chaseKey2(self, color=(0, 0, 255), duration=5):
+    def chaseKey2(self, color=(0, 0, 255), duration=5) -> None:
         self._animate_start()
         self._animate_thread.key2_animation = {
             "type": AnimationType.CHASE,
@@ -274,7 +274,7 @@ class RGBButton():
             "duration": duration
         }
 
-    def pulseKey1(self, color=Color.WHITE, duration=1):
+    def pulseKey1(self, color=Color.WHITE, duration=1) -> None:
         self._animate_start()
         ring_color = tuple(int(c * self.ring_brightness) for c in color)
         self._animate_thread.key1_animation = {
@@ -283,7 +283,7 @@ class RGBButton():
             "duration": duration
         }
 
-    def pulseKey2(self, color=Color.WHITE, duration=1):
+    def pulseKey2(self, color=Color.WHITE, duration=1) -> None:
         self._animate_start()
         ring_color = tuple(int(c * self.ring_brightness) for c in color)
         self._animate_thread.key2_animation = {

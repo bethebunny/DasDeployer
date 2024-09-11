@@ -130,7 +130,7 @@ class CircleCI(Pipelines):
 
 class CirclePollStatusThread(PollStatusThread):
     config: "CircleCIConfig"
-    _connnection: Api
+    _connection: Api
     def __init__(
         self,
         config: "CircleCIConfig",
