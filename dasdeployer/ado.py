@@ -38,28 +38,83 @@ class DeploymentStatus:
     deployments: dict[Environment, Deployment]
 
 
+def poll_deployment_status(config: "ADOConfig", client: BuildClient):
+    github = Github(
+        base_url=config.github_url,
+        login_or_token=config.github_pat,
+    )
+    repo = github.get_repo(config.github_repo)
+    branches = repo.get_branches()
+
+    def newest(branches):
+        return sorted(
+            branches,
+            key=lambda branch: branch.commit.commit.author.date,
+            reverse=True,
+        )
+
+    dev_branches = newest(
+        branch for branch in branches if branch.name.startswith("dev/")
+    )
+    test_branches = newest(
+        branch for branch in branches if branch.name.startswith("tst/")
+    )
+    main_branches = [branch for branch in branches if branch.name == "main"]
+
+    branches = {
+        Environment.DEV: next(iter(dev_branches), None),
+        Environment.TEST: next(iter(test_branches), None),
+        Environment.STAGE: next(iter(main_branches), None),
+        Environment.PROD: None,
+    }
+
+    deployments = {}
+
+    for env, pipeline_id in config.ado_pipeline_ids.items():
+        build_def: BuildDefinition = client.get_definition(
+            config.ado_project,
+            pipeline_id,
+            include_latest_builds=True,
+        )
+        env = Environment(env)
+        deployments[Environment(env)] = Deployment(
+            latest_build=build_def.latest_build,
+            # Whether a build is in progress
+            deploying=build_def.latest_completed_build.id
+            != build_def.latest_build.id,
+            branch=branch.name if (branch := branches[env]) else None,
+        )
+
+    return DeploymentStatus(deployments)
+
+
+def connect_build_client(config: "ADOConfig") -> BuildClient:
+    connection = Connection(
+        base_url=config.ado_org_url,
+        creds=BasicAuthentication("", config.ado_pat),
+    )
+    return connection.clients.get_build_client()
+
+
 class AdoPipelines:
     def __init__(self, config: "ADOConfig"):
         self._poll_thread = None
         self.config = config
 
-    def get_status(self) -> DeploymentStatus:
+    def get_status(self) -> Optional[DeploymentStatus]:
         if self._poll_thread is None:
             self._poll_thread = PollStatusThread(
                 config=self.config, interval=10
             )
             self._poll_thread.start()
-        return self._poll_thread._last_result
+        return self._poll_thread.latest_status
 
-    def approve(self, env: str, params: Dict[str, str]) -> Optional[str]:
-        print("Approve env:" + env)
-        env = Environment(env)
+    # Ugly name temporarily to preserve the interface
+    def approve(self, env_: str, params: Dict[str, str]) -> Optional[str]:
+        env = Environment(env_)
+        print("Approve env:" + env.name)
         # Get Release Client
-        connection = Connection(
-            base_url=self.config.ado_org_url,
-            creds=BasicAuthentication("", self.config.ado_pat),
-        )
-        build_client: BuildClient = connection.clients.get_build_client()
+        build_client = connect_build_client(self.config)
 
         build_def = build_client.get_definition(
             self.config.ado_project, self.config.ado_pipeline_ids[env.name]
@@ -82,19 +137,13 @@ class PollStatusThread(threading.Thread):
     def __init__(self, config: "ADOConfig", interval=10):
         super(PollStatusThread, self).__init__()
         self.daemon = True
-        self.stoprequest = threading.Event()
 
+        self.stoprequest = threading.Event()
         self.delay = interval
 
         self.config = config
-
-        self._connection = Connection(
-            base_url=config.ado_org_url,
-            creds=BasicAuthentication("", config.ado_pat),
-        )
-        self._build_client = self._connection.clients.get_build_client()
-
-        self._last_result = None
+        self._build_client = connect_build_client(config)
+        self.latest_status: Optional[DeploymentStatus] = None
 
     def start(self):
         self.stoprequest.clear()
@@ -114,64 +163,14 @@ class PollStatusThread(threading.Thread):
 
     def run(self) -> None:
         while True:
-            # Wait a bit then poll the server again
-            github = Github(
-                base_url=self.config.github_url,
-                login_or_token=self.config.github_pat,
-            )
-            repo = github.get_repo(self.config.github_repo)
-            branches = repo.get_branches()
-
-            def newest(branches):
-                return sorted(
-                    branches,
-                    key=lambda branch: branch.commit.commit.author.date,
-                    reverse=True,
-                )
-
-            dev_branches = newest(
-                branch for branch in branches if branch.name.startswith("dev/")
-            )
-            test_branches = newest(
-                branch for branch in branches if branch.name.startswith("tst/")
-            )
-            main_branches = [
-                branch for branch in branches if branch.name == "main"
-            ]
-
-            branches = {
-                Environment.DEV: next(iter(dev_branches), None),
-                Environment.TEST: next(iter(test_branches), None),
-                Environment.STAGE: next(iter(main_branches), None),
-                Environment.PROD: None,
-            }
-
-            deployments = {}
-
-            for env, pipeline_id in self.config.ado_pipeline_ids.items():
-                build_def: BuildDefinition = self._build_client.get_definition(
-                    self.config.ado_project,
-                    pipeline_id,
-                    include_latest_builds=True,
-                )
-                env = Environment(env)
-                deployments[Environment(env)] = Deployment(
-                    latest_build=build_def.latest_build,
-                    # Whether a build is in progress
-                    deploying=build_def.latest_completed_build.id
-                    != build_def.latest_build.id,
-                    branch=branch.name if (branch := branches[env]) else None,
-                )
-
-            result = DeploymentStatus(deployments)
-
-            if self._last_result != result:
+            status = poll_deployment_status(self.config, self._build_client)
+            if self.latest_status != status:
                 # Check if any values have changed to trigger saving a new result
                 # the Build objects are not checked because they'll always be different
                 # and we don't care of the Build changes unless one of these values
                 # has changed
                 print("change")
-                self._last_result = result
+                self.latest_status = status
 
             # At the end of the thread execution, wait a bit and then poll again
             if self.stoprequest.wait(self.delay):
